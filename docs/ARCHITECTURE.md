@@ -308,10 +308,122 @@ theme/intent matching:
 | Layer 3 query | no — pure code |
 | Layer 3 rendering | no — pure code |
 
-The hard-coded extraction patterns in `kb/extract.py` plus the
-curated `PATCH_FACTS` are stand-ins for the production AI-driven
-extraction pipeline. They make the demos runnable without an API
-key while still illustrating the architecture.
+## The combinatorial construction pattern
+
+The deterministic extractor in `kb/extract.py` doesn't have to be
+perfect — and intentionally isn't. Pattern-matching extractors always
+miss things, and that's fine. The construction step is **combinatorial**:
+imperfect automated extraction is combined with AI-driven curation,
+and together they produce the artifact that ships.
+
+The advantage: AI does the difficult, fuzzy work at construction
+time, and the *output of that work* (a JSON KB or a structured
+corpus) is what serves queries. No AI is needed at runtime.
+
+Three places in this repo where the combinatorial pattern is
+visible:
+
+### `src/kb/extract.py` — automated extraction + curated patches
+
+The bulk of facts comes from regex + entity-span + verb-anchor
+matching. The known gaps are filled by a hand-curated `PATCH_FACTS`
+list (`src/kb/extract.py:909`) — facts like *Einstein's wikilinked
+birth date*, *the Plato ← Socrates tutoring relation*, *Aristotle's
+canonical facts* — that the regex missed but which an AI-driven
+review identified and supplied. In production this curation step is
+done by a Claude API pass per article; here it ships as a static
+list for the demo.
+
+The combined output (automatic + patched) is `kb_1000_articles.json`.
+No further AI involvement is needed to query or reason over it.
+
+### `src/ahab/utterances.py` — fully AI-curated corpus
+
+The 35 Captain Ahab utterances aren't extracted by any automated
+extractor in this repo — they were curated directly (AI reading
+Moby-Dick, identifying Ahab's lines, tagging them with chapter /
+themes / addressee / mood / speech-act metadata). The shipped
+artifact is the `AHAB_UTTERANCES` list (`src/ahab/utterances.py:32+`).
+
+At runtime, `src/ahab/talk.py` matches user input themes against
+the corpus and returns verbatim quotes with chapter citations —
+zero AI calls.
+
+### `src/git_rag/knowledge.py` — fully AI-curated corpus
+
+The 37 Git knowledge items (topic, subtopic, intent,
+question_patterns, commands, explanation, cautions, source,
+related_items) were curated from the Git manual by AI reading the
+documentation. The shipped artifact is the `GIT_KB` list
+(`src/git_rag/knowledge.py:34+`).
+
+At runtime, `src/git_rag/query.py` does intent + topic matching
+against the corpus and returns the matched record — zero AI calls.
+
+## Why this matters
+
+The construction step can use whatever AI capability is available
+(Claude API, GPT-4, hand-curation, a fine-tuned local model) without
+locking the runtime into any of them. The artifact that ships is
+plain JSON or plain Python data, queryable with stdlib only.
+
+This is the **construction-time AI / runtime no-AI** split:
+
+- **Construction**: one-shot, slow, expensive, AI-assisted. Quality
+  is bounded by the AI's extraction capability. Errors at this
+  stage are detectable and fixable (you can read the JSON).
+- **Runtime**: per-query, fast, free, deterministic. Quality is
+  bounded by what's in the artifact. The artifact never silently
+  drifts.
+
+Consequence: the imperfect extractor in `extract.py` is the right
+shape — it doesn't need to be perfect because AI augments what it
+misses at construction time, and the artifact that results is then
+self-sufficient.
+
+## Why the extractor's imperfection does not matter
+
+Six reasons, each one sufficient on its own:
+
+1. **What ships is the output, not the extractor.** Users of the
+   system run `query.py` / `reason.py` / `talk.py` / `git_rag/query.py`
+   against a prebuilt artifact. They never run the extractor. The
+   extractor's quality matters only at construction time, in the
+   developer's environment, where mistakes are reviewable.
+
+2. **Errors are visible.** If the extractor misses a fact, you can
+   open the JSON and see what's missing. If a fact is wrong, you can
+   read it and verify against the source article. This is the
+   opposite of LLM-as-KB, where errors are hidden in weights and
+   only surface as occasional wrong answers under specific queries.
+
+3. **Errors are localised.** A missed fact is one missing line in a
+   JSON. A wrong fact is one wrong line. Fixing it doesn't affect
+   anything else. With an LLM, "fixing" a wrong fact means
+   re-training or retrieval-augmenting around it — global cost for
+   a local problem.
+
+4. **The marginal cost of fixing a gap is small.** Each missed fact
+   is a one-line addition to `PATCH_FACTS` or to the curated corpus.
+   Each new surface phrasing is one new verb-anchor in extract.py.
+   No model re-training, no embedding re-indexing, no infrastructure
+   change.
+
+5. **The extractor is replaceable.** You can swap regex for
+   dependency parsing, for a BERT-fine-tuned event extractor, for
+   Claude API calls, for hand-curation, or any combination. The
+   downstream code (`query.py`, `reason.py`, `talk.py`) doesn't
+   change because the artifact format is what they consume —
+   not the extractor.
+
+6. **The system improves monotonically.** Add a patch fact: the KB
+   knows one more thing. Add a verb anchor: the next extraction run
+   catches more facts. Nothing regresses; old facts stay valid. An
+   LLM you retrain might newly forget facts it previously knew.
+
+The architectural bet is that bounded, fixable imperfection beats
+unbounded, hidden imperfection. The extractor's coverage gaps are
+visible and addressable; an LLM's coverage gaps are not.
 
 ---
 
