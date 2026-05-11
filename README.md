@@ -136,5 +136,7 @@ command each. The technical reader will find the details in
 - **[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)** — for
   engineers: code map, data model, API reference, recipes for
   extension.
+- **[RELEASE_NOTES.md](RELEASE_NOTES.md)** — datetime-stamped record
+  of what's been added and changed.
 - **[LICENSE.md](LICENSE.md)** — free for non-commercial use; for
   commercial licensing contact `licensing [at] sapientronic [dot] ai`.
