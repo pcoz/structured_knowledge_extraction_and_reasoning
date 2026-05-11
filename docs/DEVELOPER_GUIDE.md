@@ -564,11 +564,12 @@ The pass takes hours not weeks because each step is a single LLM
 call. The KB artifact improves at each iteration; the runtime code
 doesn't change.
 
-This is the maintenance story: **AI is a build-time editor, not a
-runtime dependency.** The cost of using an LLM-assisted workflow
-is a flat per-pass API cost (or one's own time with a coding
-assistant); the benefit is a better-quality KB serving free
-queries forever.
+This is the maintenance story: **AI extracts knowledge into a
+consistent, structured format; the structured format is what runs.**
+AI is a construction-time extractor, not a runtime dependency. The
+cost of an LLM-assisted workflow is a flat per-pass API cost (or
+one's own time with a coding assistant); the benefit is a
+better-quality KB serving free, deterministic queries forever.
 
 ---
 

@@ -560,10 +560,13 @@ query. Errors are invisible at construction time and re-introduced
 at every query. Neither auditability nor determinism nor
 hallucination-resistance survives.
 
-The architectural bet here is that *AI as an editor whose output is
-plain data* combined with *deterministic serving code* produces a
-system with all three properties, while *AI as a runtime* loses
-all three.
+The architectural bet here is that *AI used to extract knowledge
+into a consistent, structured, queryable format* combined with
+*deterministic serving code* produces a system with all three
+properties, while *AI used as the runtime* loses all three. AI's
+value is the format conversion — unstructured source text becomes
+a typed, provenance-tagged record set. The shipped artifact is
+the result of that conversion; the runtime serves it.
 
 ### What's actually trusted in the running system
 
@@ -582,8 +585,10 @@ No trust is required in:
 - The model's "values" or alignment
 - Stochastic sampling parameters
 
-This is the practical case for using AI to build, but not to run.
-The AI gets edited; the runtime gets shipped.
+This is the practical case for using AI to extract, but not to run.
+AI's role is to convert unstructured source text into a consistent,
+queryable structured format — that converted format is what ships
+and what the runtime serves.
 
 ---
 
