@@ -98,9 +98,10 @@ cost ~0 bits because the decoder can derive them.
 - **Operational implementation of state-update as a compression
   mechanism**. Empirically reduces explicit fact count by ~60%
   (3,469 facts derived from 2,169 base facts in the demo KB).
-- **Slow-band substrate as state predictor, not byte predictor**.
-  Predicts SELECTORS (which dictionary to sample from) given state.
-  Much narrower / more learnable than byte prediction.
+- **State predictor instead of byte predictor**. A small auxiliary
+  model predicts SELECTORS (which phrase / dictionary to sample
+  from) given the running state. Much narrower and more learnable
+  than byte prediction.
 
 ---
 
