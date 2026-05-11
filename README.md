@@ -1,214 +1,140 @@
 # Structured Knowledge Extraction and Reasoning
 
-A pipeline that takes unstructured text in and produces a queryable
-knowledge graph: extract structured facts, persist them, apply
-inference rules, serve grounded queries. No LLM in the runtime loop.
-Every response traces to its source text.
+**Answers your customers, regulators, and staff can trust — sourced
+from your own documents, with every claim traceable to the sentence
+it came from.**
 
 > **Copyright © Edward Chalk.** The architecture and source code are
 > the original work of Edward Chalk; copyright protection is asserted
 > to the extent permitted by law. Free for non-commercial use; for
 > commercial licensing see [LICENSE.md](LICENSE.md).
 
-## Project layout
+## The problem with today's AI answers
 
-```
-.
-├── README.md          (this file)
-├── LICENSE.md
-├── docs/
-│   ├── ARCHITECTURE.md     ← the method, with a glossary of all terms
-│   └── NOVELTIES.md        ← what's new vs prior art (FrameNet, OpenIE, ...)
-└── src/
-    ├── wikipedia_utils.py  ← read Wikipedia XML, strip markup, split sentences
-    ├── kb/                 ← Wikipedia-extracted knowledge graph
-    │   ├── extract.py      (extraction pipeline)
-    │   ├── query.py        (load + lookup + path + chain queries)
-    │   ├── reason.py       (inference rules + derived facts)
-    │   ├── kb_1000_articles.json           (pre-built base KB)
-    │   └── kb_1000_articles_extended.json  (base + derived facts)
-    ├── ahab/               ← conversational demo (Moby-Dick / Captain Ahab)
-    │   ├── utterances.py   (curated quote corpus)
-    │   └── talk.py         (theme-matched retrieval)
-    └── git_rag/            ← enterprise RAG demo (Git manual)
-        ├── knowledge.py    (curated KB items)
-        └── query.py        (intent + topic matching)
-```
+Large language models are remarkable, but they have three habits that
+make them hard to deploy in serious settings:
 
-## Quick start
+- **They make things up.** A confidently worded answer can be wholly
+  invented, and there is no built-in way to tell the difference.
+- **They can't show their working.** When a model gives an answer,
+  it can't point to the specific document, page, or sentence it came
+  from.
+- **They change their mind.** Ask the same question twice and you can
+  get two different answers.
 
-```bash
-# Wikipedia KB — query the pre-built graph
-python src/kb/query.py
+For a marketing chatbot, those are quirks. For a bank, a hospital, a
+law firm, a regulator, or anyone whose answers have to stand up to
+scrutiny, they are blockers.
 
-# Wikipedia KB — derive new facts via inference rules, then query
-python src/kb/reason.py
+## What this project offers
 
-# Talk to Captain Ahab — 13 questions answered with verbatim Melville quotes
-python src/ahab/talk.py
+A different way of putting AI to work: **use AI once, up front, to
+read your documents and extract the knowledge into a clean,
+structured form. After that, the system answers from the structured
+knowledge — no AI in the loop, no hallucinations, every answer
+traceable.**
 
-# Enterprise RAG — 15 Git developer questions answered from the manual
-python src/git_rag/query.py
-```
+The result is a system that:
 
-Each runs in a few seconds. Standard-library Python only; no
-external dependencies.
+- **Won't invent facts.** If the answer isn't in your documents, it
+  says so.
+- **Shows its working.** Every answer points back to the exact source
+  sentence.
+- **Gives the same answer every time.** Deterministic and auditable.
+- **Runs cheaply at query time.** No API calls, no GPU bills — a
+  query takes under a millisecond.
+- **Can reason, not just retrieve.** It can connect facts across
+  documents to answer questions whose answers no single document
+  contains.
 
-## How to read the docs
+## Who this is for
 
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — the three-layer
-  pipeline (extraction → indexing/inference → serving), the
-  rationale, and a glossary of every in-house term used in the code:
-  *phenocryst*, *groundmass*, *xenolith*, *cell*, *shape*, *context*,
-  *flavour*, *interaction type*, *triple*, *entity*, *alias map*,
-  *Horn clause*, *fixpoint*, *provenance*, *construction time*,
-  *AI-cheating*, *theme*, *speech act*.
-- **[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)** — practical
-  reference: code map, data model (Triple / KB JSON schema /
-  Derivation), KB API quickref, recipes (add a fact, add a relation
-  type, add an inference rule, add a new domain, build a fresh KB,
-  customise the matcher), performance notes, troubleshooting.
-- **[docs/USE_CASES.md](docs/USE_CASES.md)** — which LLM/RAG use
-  cases this architecture can take over, grouped by criticality
-  (regulated, technical, customer-facing, internal KM, research,
-  brand). For each: current approach, where it falls short, how
-  this addresses it, implementation sketch, what's gained. Plus
-  an explicit "where this does NOT replace LLMs" section.
-- **[docs/COMPARISONS.md](docs/COMPARISONS.md)** — side-by-side with
-  the main alternative technologies (vector RAG, GraphRAG,
-  LLM-as-KB, Wikidata, OpenIE, FrameNet, CYC, Neo4j, BERT-based
-  event extraction). What each does well, where it falls short, how
-  this project differs, where they could be combined.
+| If you... | This helps because... |
+|---|---|
+| Run a regulated business (finance, legal, medical, pharma) | Every answer is sourced and reproducible — audit-ready by construction |
+| Have a deep technical product or manual | Customers and staff get instant, accurate answers from your own documentation |
+| Field the same questions over and over in support | Answers come from your knowledge base, not a model's training data |
+| Want a brand-safe conversational assistant | The assistant can only say things that exist in the corpus you curated |
+| Worry about hallucination, data leakage, or AI cost at scale | None of those apply at query time, because there is no AI at query time |
+
+## What's in the repository
+
+Three working demonstrations, each runnable in a few seconds without
+any setup, API keys, or external dependencies:
+
+### A Wikipedia knowledge graph
+
+A graph built from 1,000 Wikipedia articles, containing 2,169 facts
+and 2,561 entities. You can ask it questions like:
+
+- "Who tutored Alexander the Great?"  →  *Aristotle*
+- "What were Aristotle's student's conquests?"  →  *Persia, Egypt, the
+  Persian Empire*
+- "How are Alexander the Great and Socrates connected?"  →  *Alexander
+  ← Aristotle ← Plato ← Socrates*
+
+It can also **infer new facts** from existing ones — for example,
+deducing that Socrates is an intellectual ancestor of Alexander even
+though no single article says so directly.
+
+### A conversational demo (Captain Ahab)
+
+Ask 13 questions about whales, the sea, and obsession, and receive
+verbatim answers from Melville's *Moby-Dick*. The point isn't the
+literary content — it's that the assistant **physically cannot
+fabricate**, because it can only return text from the curated source.
+
+### An enterprise documentation assistant (Git manual)
+
+Ask 15 developer questions about Git, get accurate, source-grounded
+answers from the manual. A miniature of how a real product would
+serve customer or internal support: feed it the manual, get an
+assistant that answers from it and nothing else.
+
+## How it works, in plain language
+
+Three layers, built once and then reused at query time:
+
+1. **Read your documents and extract structured knowledge.** This
+   step uses AI (or, in this demo, hand-crafted patterns) to read
+   text and pull out facts in a consistent format — *who did what,
+   when, where, to whom*. This is the one place AI is used.
+
+2. **Apply your business rules.** Combine extracted facts using
+   logical rules — for example, *"if A trained B and B trained C,
+   then A is an intellectual ancestor of C"*. The system derives new
+   facts automatically, each tagged with the rule and inputs that
+   produced it.
+
+3. **Serve answers.** Queries run against the structured knowledge.
+   No AI, no API calls. Every answer carries its source.
+
+This split — **AI at construction time, no AI at query time** —
+is what makes the system auditable, cheap, fast, and trustworthy.
+
+## Trying it out
+
+If you have Python installed, all three demos run with a single
+command each. The technical reader will find the details in
+[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md).
+
+## Where to go next
+
+- **[docs/USE_CASES.md](docs/USE_CASES.md)** — concrete applications
+  across regulated industries, customer support, internal knowledge,
+  technical documentation, research, and conversational products.
+  For each: where current approaches fall short, how this changes
+  things, what's gained. Also: an honest section on where this does
+  *not* replace LLMs.
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — the design,
+  rationale, and full glossary of terms.
+- **[docs/COMPARISONS.md](docs/COMPARISONS.md)** — how this compares
+  to vector RAG, knowledge graphs, LLM-as-database, and other
+  alternatives.
 - **[docs/NOVELTIES.md](docs/NOVELTIES.md)** — what this contributes
-  that isn't standard in the literature, with prior art and the
-  specific contribution per item.
+  that isn't standard in the field.
+- **[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)** — for
+  engineers: code map, data model, API reference, recipes for
+  extension.
 - **[LICENSE.md](LICENSE.md)** — free for non-commercial use; for
   commercial licensing contact licensing@sapientronic.ai.
-
-## How to set up the knowledge representation
-
-Three layers, built in this order:
-
-### Layer 1 — Extract structured facts from text
-
-```python
-from wikipedia_utils import read_articles
-from kb.extract import extract_facts_from_article, KnowledgeGraph
-
-articles = read_articles(n=1000)       # needs a Wikipedia XML dump
-graph = KnowledgeGraph()
-for title, raw in articles:
-    for triple in extract_facts_from_article(title, raw):
-        graph.add(triple)
-
-graph.save("kb_1000_articles.json")
-```
-
-Patterns are defined in `src/kb/extract.py` (verb-anchored regex
-with entity-span detection). Coverage is bounded by the patterns;
-expect ~2 facts per article from the default library. The production
-path uses Claude API to extract per article; same JSON output.
-
-### Layer 2 — Apply inference rules
-
-`src/kb/reason.py` defines Horn-clause rules:
-
-```
-R1: X TUTORED_BY Y, Y TUTORED_BY Z   → X INTELLECTUAL_DESCENDANT_OF Z
-R2: X TUTORED Y, Y CONQUERED Z       → X TAUGHT_CONQUEROR_OF Z
-R3: X CHILD_OF Y, Y CHILD_OF Z       → X GRANDCHILD_OF Z
-R4: X BORN_DATE D                     → X LIVED_IN era_tag
-R5: X BORN_DATE B, X DIED_DATE D     → X LIVED_FOR years
-R6: X CONQUERED Y, X CONQUERED Z (Y≠Z) → X IS_A MULTI_CONQUEROR
-R7: |X.born - Y.born| ≤ 50            → X CONTEMPORARY_OF Y
-```
-
-Each derived fact carries its rule name + input triples + a
-"since...therefore..." explanation for provenance.
-
-### Layer 3 — Query and serve
-
-```python
-from kb.query import KB
-kb = KB.load("src/kb/kb_1000_articles_extended.json")
-
-# Entity card
-for t in kb.out_facts("Aristotle"):
-    print(t.relation, t.object)
-
-# Multi-hop chain: Aristotle's student's conquests
-for end, path in kb.chain_query("Aristotle", ["TUTORED", "CONQUERED"]):
-    print(end)        # → Persia, Egypt, Empire
-
-# Path query: connect any two entities
-paths = kb.find_paths("Alexander the Great", "Socrates", max_hops=4)
-# → Alexander ← Aristotle ← Plato ← Socrates
-
-# Reasoning queries — derived facts available like base facts
-kb.in_facts("Socrates", "INTELLECTUAL_DESCENDANT_OF")    # → [Aristotle]
-```
-
-## How to extend
-
-### Add facts directly to the JSON
-
-Append to `src/kb/kb_1000_articles.json`:
-
-```json
-{
-  "subject": "Marie Curie",
-  "relation": "DISCOVERED",
-  "object": "Radium",
-  "source_article": "Marie Curie",
-  "source_sentence_idx": -1
-}
-```
-
-Picked up on next load. No code change needed for queries.
-
-### Add a new relation type
-
-1. Pick a relation name (e.g., `INFLUENCED_BY`).
-2. Optional: add a verb-anchor in `src/kb/extract.py` for auto-mining.
-3. Optional: add an inference rule in `src/kb/reason.py`.
-
-### Add a new domain
-
-Mirror `src/ahab/` or `src/git_rag/`:
-
-1. `<domain>/knowledge.py` — curated structured records.
-2. `<domain>/query.py` — load + topic-match retrieval.
-
-The query side is ~50 lines; the work is curating the corpus.
-
-### Tweak the matcher's scoring
-
-`src/git_rag/query.py:score_item` (~30 lines). Common tweaks: weight
-distinctive tokens higher, add stemming, add bigram matching, add
-fuzzy matching.
-
-## Where AI is in the loop
-
-| phase | AI involvement | cost |
-|---|---|---|
-| Extraction / curation | Yes — Claude API, or hand | one-shot |
-| Persistence (JSON) | No | ms |
-| Loading + indexing | No | ms per MB |
-| Query | No | <1ms |
-| Reasoning | No | seconds (fixpoint) |
-| Rendering | No | <1ms |
-
-The hand-curated facts in `src/kb/extract.py` and the curated corpora
-in `src/ahab/utterances.py` and `src/git_rag/knowledge.py` are
-stand-ins for production AI-driven extraction. They make the demos
-runnable without an API key while illustrating the
-construction-time-AI / runtime-no-AI split.
-
-## Constraints
-
-- Keyword-based matcher (not embedding-based). Add patterns to cover
-  expected surface variation.
-- KB JSON loads fully into memory. For >10M triples, switch to a
-  SQLite index.
-- Inference rules are Horn clauses only — no disjunction, no
-  negation.
