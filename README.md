@@ -68,6 +68,11 @@ external dependencies.
   Derivation), KB API quickref, recipes (add a fact, add a relation
   type, add an inference rule, add a new domain, build a fresh KB,
   customise the matcher), performance notes, troubleshooting.
+- **[docs/COMPARISONS.md](docs/COMPARISONS.md)** — side-by-side with
+  the main alternative technologies (vector RAG, GraphRAG,
+  LLM-as-KB, Wikidata, OpenIE, FrameNet, CYC, Neo4j, BERT-based
+  event extraction). What each does well, where it falls short, how
+  this project differs, where they could be combined.
 - **[docs/NOVELTIES.md](docs/NOVELTIES.md)** — what this contributes
   that isn't standard in the literature, with prior art and the
   specific contribution per item.
