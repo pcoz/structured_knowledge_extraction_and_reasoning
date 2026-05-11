@@ -12,7 +12,7 @@ try:
 except Exception:
     pass
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent       # src/wikipedia_utils.py → repo root
 WIKIPEDIA_DUMP_PATH = Path(
     os.environ.get("WIKIPEDIA_DUMP_PATH", str(PROJECT_ROOT / "data" / "wikipedia_dump.xml"))
 )

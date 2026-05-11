@@ -1,7 +1,6 @@
 """Captain Ahab's utterance corpus — the AI-extracted character KG.
 
-Per the 2026-05-11 architecture, conversational generation grounded in
-a source text decomposes into:
+Conversational generation grounded in a source text decomposes into:
 
   1. Extract the character's utterances + metadata from the source
   2. Index them by theme, addressee, mood, speech-act
@@ -19,14 +18,11 @@ Herman Melville's Moby-Dick. Each entry carries:
   - speech_act: oath / command / monologue / dialogue / prayer / exclamation
 
 In a production pipeline, an AI extractor (Claude API) would scan the
-full novel and emit this corpus automatically. For this demo, the
-corpus is hand-curated — same pattern as the KB experiment's
-CURATED_FACTS step.
+full novel and emit this corpus automatically. Here it's hand-curated
+— the construction-time AI step done directly rather than via API.
 
 The text excerpts are real lines from Moby-Dick (Project Gutenberg
-public-domain text). Where the exact wording is uncertain, I've
-preferred lightly normalised forms; the chapter attributions are
-accurate.
+public-domain text). Chapter attributions are accurate.
 """
 
 from dataclasses import dataclass, field

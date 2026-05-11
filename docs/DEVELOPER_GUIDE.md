@@ -382,7 +382,7 @@ sparse.
 
 **Input to the assistant**:
 - The source article's cleaned prose (a few hundred lines)
-- The triples that `kb/extract.py` already produced for that article
+- The triples that `src/kb/extract.py` already produced for that article
   (filter the JSON by `source_article`)
 
 **Prompt template**:
@@ -479,7 +479,7 @@ quotes from a different novel).
 multi-hop reach.
 
 **Input to the assistant**:
-- The KB's relation distribution (output of `kb/query.py`'s "Top 10
+- The KB's relation distribution (output of `src/kb/query.py`'s "Top 10
   relations" section)
 - A sample of entities (from "Top 25 most-connected entities")
 

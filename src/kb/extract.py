@@ -889,7 +889,7 @@ def main() -> None:
     print(f"  Entities in graph:         {len(graph.entities()):,}")
     print(f"  Queries run:               {queries_run}")
     print()
-    print(f"  Linear projection to enwik9 (~150K articles):")
+    print(f"  Linear projection to ~150K-article corpus:")
     print(f"    Triples: ~{len(graph.triples) * 150 // max(1, len(articles)):,}")
     print(f"    Entities: ~{len(graph.entities()) * 150 // max(1, len(articles)):,}")
     print()

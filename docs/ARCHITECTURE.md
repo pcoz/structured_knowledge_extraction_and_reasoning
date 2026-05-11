@@ -225,7 +225,7 @@ here in specific ways. Definitions:
 
 ## Layer 1: extraction (in detail)
 
-The extractor (in `kb/extract.py`) does:
+The extractor (in `src/kb/extract.py`) does:
 
 1. **Markup stripping** (`wikipedia_utils.strip_markup`): converts
    raw XML article body to clean prose.
@@ -259,13 +259,13 @@ Output: a list of `Triple` records, serialised to JSON.
 
 ## Layer 2: indexing + inference (in detail)
 
-On KB load (`kb/query.py:KB.load`):
+On KB load (`src/kb/query.py:KB.load`):
 
 1. Triples are read from JSON.
 2. Adjacency indexes are built: `out_edges[subject]`,
    `in_edges[object]`, `by_relation[relation]`.
 
-On reasoning (`kb/reason.py:apply_all_rules`):
+On reasoning (`src/kb/reason.py:apply_all_rules`):
 
 1. Each rule iterates over the KB's triples (or specific relation
    subsets) and emits `Derivation` objects.
@@ -277,7 +277,7 @@ On reasoning (`kb/reason.py:apply_all_rules`):
 
 ## Layer 3: serving (in detail)
 
-Query types supported by `kb/query.py:KB`:
+Query types supported by `src/kb/query.py:KB`:
 
 - `out_facts(entity, relation=None)` — all outgoing triples
 - `in_facts(entity, relation=None)` — all incoming triples
@@ -286,8 +286,8 @@ Query types supported by `kb/query.py:KB`:
 - `chain_query(start, [rel1, rel2, ...])` — follow a fixed sequence
   of relations
 
-The conversational and RAG demos (`ahab/talk.py`,
-`git_rag/query.py`) wrap the same KB-style retrieval with
+The conversational and RAG demos (`src/ahab/talk.py`,
+`src/git_rag/query.py`) wrap the same KB-style retrieval with
 theme/intent matching:
 
 1. Extract themes/topics/intent from user input
@@ -310,7 +310,7 @@ theme/intent matching:
 
 ## The combinatorial construction pattern
 
-The deterministic extractor in `kb/extract.py` doesn't have to be
+The deterministic extractor in `src/kb/extract.py` doesn't have to be
 perfect — and intentionally isn't. Pattern-matching extractors always
 miss things, and that's fine. The construction step is **combinatorial**:
 imperfect automated extraction is combined with AI-driven curation,
@@ -386,7 +386,7 @@ self-sufficient.
 Six reasons, each one sufficient on its own:
 
 1. **What ships is the output, not the extractor.** Users of the
-   system run `query.py` / `reason.py` / `talk.py` / `git_rag/query.py`
+   system run `query.py` / `reason.py` / `talk.py` / `src/git_rag/query.py`
    against a prebuilt artifact. They never run the extractor. The
    extractor's quality matters only at construction time, in the
    developer's environment, where mistakes are reviewable.
@@ -574,8 +574,8 @@ Trust in the running system reduces to trusting two things:
 
 1. **The artifact** (the JSON KB, the curated corpora). Anyone can
    read it. Errors are visible in plain text.
-2. **The runtime code** (~1,500 lines across `kb/`, `ahab/`,
-   `git_rag/`). Anyone can read it. Bugs are testable.
+2. **The runtime code** (~1,500 lines across `src/kb/`, `src/ahab/`,
+   `src/git_rag/`). Anyone can read it. Bugs are testable.
 
 No trust is required in:
 
@@ -598,9 +598,9 @@ Three demos in this repo cover three source-text types:
 
 | domain | source text | demo |
 |---|---|---|
-| Encyclopedic | Wikipedia article dump | `kb/` |
-| Fictional / conversational | Moby-Dick (Ahab's quotes) | `ahab/` |
-| Software documentation | Git manual | `git_rag/` |
+| Encyclopedic | Wikipedia article dump | `src/kb/` |
+| Fictional / conversational | Moby-Dick (Ahab's quotes) | `src/ahab/` |
+| Software documentation | Git manual | `src/git_rag/` |
 
 To add a new domain (e.g., medical guidelines, legal codes,
 scientific literature):

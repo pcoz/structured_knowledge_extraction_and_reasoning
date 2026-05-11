@@ -152,13 +152,13 @@ cases.
 ### 6. Software product documentation Q&A
 
 **Currently uses**: LLM + vector RAG over manuals (the
-`git_rag/` demo case generalised). Developer asks "how do I X?"
+`src/git_rag/` demo case generalised). Developer asks "how do I X?"
 
 **Where it falls short**: synthesised commands are sometimes
 syntactically wrong or invent flags that don't exist. Stack
 Overflow's main complaint about LLM answers.
 
-**How this addresses it**: this is exactly the `git_rag/` pattern
+**How this addresses it**: this is exactly the `src/git_rag/` pattern
 from this repo. Per-command KB items with (command, options,
 examples, source-manual-section). Copy-pasteable, verified, sourced.
 
@@ -252,7 +252,7 @@ question-patterns, answer, source-document, applicability-conditions).
 Every served answer cites the policy doc.
 
 **Implementation**: curated KB per product line; topic/intent
-matching identical to the `git_rag/` pattern. Optional: LLM
+matching identical to the `src/git_rag/` pattern. Optional: LLM
 paraphrase pass on the deterministic output for tone (no facts added).
 
 **Win**: policy-compliant answers; reduced honoured-hallucination
