@@ -137,4 +137,4 @@ command each. The technical reader will find the details in
   engineers: code map, data model, API reference, recipes for
   extension.
 - **[LICENSE.md](LICENSE.md)** — free for non-commercial use; for
-  commercial licensing contact licensing@sapientronic.ai.
+  commercial licensing contact `licensing [at] sapientronic [dot] ai`.

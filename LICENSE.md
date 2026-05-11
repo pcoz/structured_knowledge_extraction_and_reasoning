@@ -32,7 +32,7 @@ Use that is part of a commercial product or service, or any internal
 tool of a for-profit enterprise, or research with the expectation of
 commercial application, requires a commercial license.
 
-For commercial licensing, contact **licensing@sapientronic.ai**.
+For commercial licensing, contact **licensing [at] sapientronic [dot] ai**.
 
 ## No warranty
 
