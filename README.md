@@ -58,11 +58,16 @@ external dependencies.
 
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — the three-layer
   pipeline (extraction → indexing/inference → serving), the
-  rationale, and a glossary explaining every in-house term used in
-  the code: *phenocryst*, *groundmass*, *xenolith*, *cell*, *shape*,
-  *context*, *flavour*, *interaction type*, *triple*, *entity*,
-  *alias map*, *Horn clause*, *fixpoint*, *provenance*,
-  *construction time*, *AI-cheating*, *theme*, *speech act*, etc.
+  rationale, and a glossary of every in-house term used in the code:
+  *phenocryst*, *groundmass*, *xenolith*, *cell*, *shape*, *context*,
+  *flavour*, *interaction type*, *triple*, *entity*, *alias map*,
+  *Horn clause*, *fixpoint*, *provenance*, *construction time*,
+  *AI-cheating*, *theme*, *speech act*.
+- **[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)** — practical
+  reference: code map, data model (Triple / KB JSON schema /
+  Derivation), KB API quickref, recipes (add a fact, add a relation
+  type, add an inference rule, add a new domain, build a fresh KB,
+  customise the matcher), performance notes, troubleshooting.
 - **[docs/NOVELTIES.md](docs/NOVELTIES.md)** — what this contributes
   that isn't standard in the literature, with prior art and the
   specific contribution per item.
