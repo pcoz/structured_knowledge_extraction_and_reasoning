@@ -425,6 +425,166 @@ The architectural bet is that bounded, fixable imperfection beats
 unbounded, hidden imperfection. The extractor's coverage gaps are
 visible and addressable; an LLM's coverage gaps are not.
 
+## Why the system stays auditable, deterministic, and non-hallucinatory
+
+The natural objection: *"If AI is involved in construction, how can
+the runtime claim to be auditable, deterministic, and
+hallucination-free?"*
+
+The answer is that AI's involvement is bounded to construction time
+and its output is a recordable artifact. That artifact is then
+frozen and shipped, and every property below follows from the
+artifact's nature plus the runtime mechanics — not from anything
+about AI.
+
+### Auditable — because the artifact is plain data
+
+What ships is JSON for the KB demos and Python lists of dataclasses
+for the conversational and RAG demos. You can open any of these in
+a text editor and read every fact. There's no hidden state. There's
+no compiled binary form of "what the model knows."
+
+Per-fact provenance is encoded in the artifact itself:
+
+- `Triple.source_article` and `Triple.source_sentence_idx` for every
+  KB fact
+- `Utterance.chapter` and `Utterance.chapter_title` for every
+  Ahab utterance
+- `KnowledgeItem.source` for every Git knowledge item
+- `Derivation.rule_name` + `Derivation.inputs` + `Derivation.explanation`
+  for every derived fact
+
+If a served response is wrong, you can trace it to the exact
+triple in the JSON, then to the exact source article + sentence,
+then to the inference rule (if derived) and to the input triples
+that fed the rule. Nothing is hidden in weights.
+
+AI's *contribution* to the artifact is itself auditable:
+
+- `PATCH_FACTS` in `src/kb/extract.py:909` is a list. You can read
+  every patched fact in version control. If a patch is wrong, it's
+  visible.
+- The curated utterances in `src/ahab/utterances.py` are 35
+  human-readable records.
+- The curated knowledge items in `src/git_rag/knowledge.py` are 37
+  human-readable records.
+
+Each was authored by AI at construction time, but each is then a
+plain-text record in the codebase. A reviewer can spot-check the
+AI's work against the source material in seconds.
+
+### Deterministic — because the runtime is pure data operations
+
+Once the artifact is built, every runtime operation is one of:
+
+- A dictionary lookup (`kb.out_edges["Aristotle"]`)
+- A set intersection (`overlap = p_tokens & q_tokens`)
+- A breadth-first graph traversal (`find_paths`)
+- A scoring function summing fixed-weight contributions
+- A `string.format()` call on a template with slot fillings
+
+None of these involves sampling, randomness, temperature, or
+beam search. Given the same artifact and the same query, you get
+the same answer every time, byte-for-byte.
+
+Horn-clause inference is deterministic by definition: given the
+same facts and the same rules, the same derivations are produced
+in the same order. The reasoning engine is a fixpoint iteration
+over pure functions, not a stochastic search.
+
+There is no place in the runtime where "the model might decide
+differently this time" can happen. The runtime simply doesn't have
+a model.
+
+### Non-hallucinatory — because there is no generative step
+
+For a system to hallucinate, it has to *generate text that wasn't
+in its inputs*. This runtime has no such step:
+
+- The retriever picks the highest-scoring record from a fixed list.
+  It can pick the *wrong* record (if the matcher is poorly tuned),
+  but it cannot return a record that doesn't exist.
+- The renderer formats the picked record into a string by filling
+  slots with values from the record. The values come from the
+  record. The template is fixed code.
+- The reasoning engine derives new facts by applying named rules
+  to existing facts. It cannot derive facts whose ingredients
+  aren't already present.
+
+There is no autoregressive text generator. There is no "the model
+synthesises an answer based on context." The output is *retrieved
+data formatted by deterministic code*. The output cannot contain
+claims that aren't in the artifact.
+
+The strongest form of this argument: if a query returns no good
+match, the system returns *"no results"*. It doesn't fabricate. An
+LLM would generate plausible-sounding text whether the answer is
+in the corpus or not; this system simply has no path to do that.
+
+### Why AI involvement at construction time doesn't contaminate
+
+The crucial structural point: AI's contribution at construction
+time produces *recordable, inspectable, editable data*. That data
+is then frozen.
+
+```
+construction time  →  AI generates candidate facts/records
+                  →  human review (read the JSON, accept/reject)
+                  →  artifact is FROZEN
+                  →  ────────────────────
+runtime          ←  artifact is consulted
+                 ←  pure-code operations only
+                 ←  no AI invocation
+```
+
+The horizontal line is the boundary. AI lives above it. Runtime
+lives below it. Mistakes above the line are visible and fixable
+because they're encoded as plain data. Below the line, there's no
+AI to make mistakes.
+
+Compare to an LLM-as-KB or LLM+RAG-with-synthesis system:
+
+```
+construction time  →  train the model
+                  →  weights become the artifact (opaque)
+                  →  ────────────────────
+runtime          ←  query invokes the model
+                 ←  stochastic generation
+                 ←  may hallucinate
+                 ←  no provenance
+```
+
+In an LLM system, AI's contribution at construction time is encoded
+into weights you can't inspect, and AI is re-invoked at every
+query. Errors are invisible at construction time and re-introduced
+at every query. Neither auditability nor determinism nor
+hallucination-resistance survives.
+
+The architectural bet here is that *AI as an editor whose output is
+plain data* combined with *deterministic serving code* produces a
+system with all three properties, while *AI as a runtime* loses
+all three.
+
+### What's actually trusted in the running system
+
+Trust in the running system reduces to trusting two things:
+
+1. **The artifact** (the JSON KB, the curated corpora). Anyone can
+   read it. Errors are visible in plain text.
+2. **The runtime code** (~1,500 lines across `kb/`, `ahab/`,
+   `git_rag/`). Anyone can read it. Bugs are testable.
+
+No trust is required in:
+
+- A model's weights
+- The AI vendor's policies, uptime, or future API changes
+- Training data the AI was exposed to that you can't see
+- The model's "values" or alignment
+- Stochastic sampling parameters
+
+This is the practical case for using AI to build, but not to run.
+The AI gets edited; the runtime gets shipped.
+
 ---
 
 ## Extending to new domains
