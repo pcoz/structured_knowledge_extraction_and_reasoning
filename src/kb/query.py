@@ -1,0 +1,267 @@
+"""Load a JSON knowledge graph and run multi-hop / path / chain queries."""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+from collections import defaultdict, Counter
+from dataclasses import dataclass, field
+from pathlib import Path
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
+
+KB_PATH = Path(__file__).resolve().parent / "kb_1000_articles.json"
+
+
+@dataclass
+class Triple:
+    subject: str
+    relation: str
+    object: str
+    source_article: str
+    source_sentence_idx: int
+
+
+@dataclass
+class KB:
+    triples: list[Triple]
+    alias_map: dict[str, str]
+    n_articles: int
+
+    out_edges: dict[str, list] = field(default_factory=lambda: defaultdict(list))
+    in_edges: dict[str, list] = field(default_factory=lambda: defaultdict(list))
+    by_relation: dict[str, list[int]] = field(default_factory=lambda: defaultdict(list))
+
+    def __post_init__(self):
+        for idx, t in enumerate(self.triples):
+            self.out_edges[t.subject].append((t.relation, t.object, idx))
+            self.in_edges[t.object].append((t.relation, t.subject, idx))
+            self.by_relation[t.relation].append(idx)
+
+    @classmethod
+    def load(cls, path: Path) -> "KB":
+        with open(path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        triples = [Triple(**t) for t in payload["triples"]]
+        return cls(
+            triples=triples,
+            alias_map=payload.get("alias_map", {}),
+            n_articles=payload.get("n_articles", 0),
+        )
+
+    def entities(self) -> set[str]:
+        return set(self.out_edges.keys()) | set(self.in_edges.keys())
+
+    def canonicalize(self, name: str) -> str:
+        return self.alias_map.get(name, name)
+
+    def out_facts(self, entity: str, relation: str | None = None) -> list[Triple]:
+        ent = self.canonicalize(entity)
+        return [
+            self.triples[idx]
+            for rel, _, idx in self.out_edges.get(ent, [])
+            if relation is None or rel == relation
+        ]
+
+    def in_facts(self, entity: str, relation: str | None = None) -> list[Triple]:
+        ent = self.canonicalize(entity)
+        return [
+            self.triples[idx]
+            for rel, _, idx in self.in_edges.get(ent, [])
+            if relation is None or rel == relation
+        ]
+
+    def neighbours(self, entity: str) -> set[str]:
+        ent = self.canonicalize(entity)
+        out: set[str] = set()
+        for _, obj, _ in self.out_edges.get(ent, []):
+            out.add(obj)
+        for _, subj, _ in self.in_edges.get(ent, []):
+            out.add(subj)
+        return out
+
+    def find_paths(
+        self, start: str, end: str, max_hops: int = 4, max_paths: int = 5,
+    ) -> list[list[Triple]]:
+        """BFS from start to end (edges undirected for connectivity)."""
+        start = self.canonicalize(start)
+        end = self.canonicalize(end)
+        if start == end:
+            return [[]]
+        results: list[list[Triple]] = []
+        visited = {start}
+        frontier = [(start, [])]
+        for _hop in range(max_hops):
+            next_frontier = []
+            for current, path in frontier:
+                for rel, obj, idx in self.out_edges.get(current, []):
+                    t = self.triples[idx]
+                    if obj == end:
+                        results.append(path + [t])
+                        if len(results) >= max_paths:
+                            return results
+                    elif obj not in visited:
+                        visited.add(obj)
+                        next_frontier.append((obj, path + [t]))
+                for rel, subj, idx in self.in_edges.get(current, []):
+                    t = self.triples[idx]
+                    if subj == end:
+                        results.append(path + [t])
+                        if len(results) >= max_paths:
+                            return results
+                    elif subj not in visited:
+                        visited.add(subj)
+                        next_frontier.append((subj, path + [t]))
+            if results:
+                return results
+            frontier = next_frontier
+        return results
+
+    def chain_query(
+        self, start: str, relations: list[str],
+    ) -> list[tuple[str, list[Triple]]]:
+        """Follow a fixed sequence of relations from start.
+
+        Each relation is followed in BOTH directions (out_facts and
+        in_facts) for connectivity. Returns (end_entity, path) pairs.
+        """
+        start = self.canonicalize(start)
+        frontiers = [[(start, [])]]
+        for rel in relations:
+            next_layer = []
+            for entity, path in frontiers[-1]:
+                for t in self.out_facts(entity, rel):
+                    next_layer.append((t.object, path + [t]))
+                for t in self.in_facts(entity, rel):
+                    next_layer.append((t.subject, path + [t]))
+            frontiers.append(next_layer)
+            if not next_layer:
+                break
+        return frontiers[-1]
+
+
+def fmt_path(path: list[Triple]) -> str:
+    if not path:
+        return "(empty path)"
+    nodes = [path[0].subject]
+    for t in path:
+        if nodes[-1] == t.subject:
+            nodes.append(t.object)
+            nodes[-2] = f"{nodes[-2]} --{t.relation}--> "
+        else:
+            nodes.append(t.subject)
+            nodes[-2] = f"{nodes[-2]} <--{t.relation}-- "
+    return "".join(nodes)
+
+
+def main() -> None:
+    print("=" * 78)
+    print("Knowledge graph query session")
+    print("=" * 78)
+    print()
+
+    if not KB_PATH.exists():
+        print(f"  KB file not found: {KB_PATH}")
+        return
+
+    kb = KB.load(KB_PATH)
+    print(f"  Loaded: {KB_PATH.name}")
+    print(f"  Triples:  {len(kb.triples):,}")
+    print(f"  Entities: {len(kb.entities()):,}")
+    print(f"  Aliases:  {len(kb.alias_map):,}")
+    print()
+
+    # Entity cards
+    print("ENTITY CARDS")
+    print("-" * 78)
+    for ent in ["Aristotle", "Alexander the Great", "Albert Einstein",
+                "Plato", "Socrates"]:
+        out_facts = kb.out_facts(ent)
+        in_facts = kb.in_facts(ent)
+        print(f"\n  {ent}")
+        if not out_facts and not in_facts:
+            print(f"    (not in KB)")
+            continue
+        for t in out_facts[:8]:
+            print(f"    {t.relation}: {t.object}")
+        if len(out_facts) > 8:
+            print(f"    ... + {len(out_facts) - 8} more outgoing")
+        if in_facts:
+            print(f"    Incoming:")
+            for t in in_facts[:3]:
+                print(f"      ← {t.relation} ← {t.subject}")
+    print()
+
+    # Multi-hop chains
+    print("MULTI-HOP QUERIES")
+    print("-" * 78)
+
+    print(f"\n  Q: Who did Aristotle tutor?")
+    for r in [t.object for t in kb.out_facts("Aristotle", "TUTORED")]:
+        print(f"    → {r}")
+
+    print(f"\n  Q: Aristotle's tutor's tutor?")
+    for tutor in [t.object for t in kb.out_facts("Aristotle", "TUTORED_BY")]:
+        for t in kb.out_facts(tutor, "TUTORED_BY"):
+            print(f"    → Aristotle ← {tutor} ← {t.object}")
+
+    print(f"\n  Q: What did Aristotle's student conquer?")
+    for end, path in kb.chain_query("Aristotle", ["TUTORED", "CONQUERED"]):
+        print(f"    → {path[0].object} conquered {end}")
+
+    print(f"\n  Q: Connection between Alexander the Great and Socrates?")
+    paths = kb.find_paths("Alexander the Great", "Socrates", max_hops=4)
+    for p in paths[:3]:
+        print(f"    → {fmt_path(p)}")
+
+    # Filter queries
+    print()
+    print("FILTER QUERIES")
+    print("-" * 78)
+    print(f"\n  Q: Entities born in the 4th-5th century BC")
+    for t in kb.triples:
+        if t.relation == "BORN_DATE":
+            m = re.match(r"(\d+)\s*BC", t.object)
+            if m and 300 < int(m.group(1)) <= 500:
+                print(f"    → {t.subject} ({t.object})")
+
+    print(f"\n  Q: Entities born in the 19th century")
+    seen = set()
+    for t in kb.triples:
+        if t.relation == "BORN_DATE":
+            try:
+                year = int(re.match(r"\d+", t.object).group(0))
+                if 1800 <= year <= 1899 and t.subject not in seen:
+                    seen.add(t.subject)
+                    print(f"    → {t.subject} ({t.object})")
+                    if len(seen) >= 10:
+                        break
+            except (AttributeError, ValueError):
+                pass
+
+    # Graph stats
+    print()
+    print("GRAPH STATS")
+    print("-" * 78)
+    mention_counts = Counter()
+    for t in kb.triples:
+        mention_counts[t.subject] += 1
+        mention_counts[t.object] += 1
+    print(f"\n  Top 10 most-connected entities:")
+    for ent, n in mention_counts.most_common(10):
+        print(f"    {ent}: {n} mentions")
+
+    rel_counts = Counter(t.relation for t in kb.triples)
+    print(f"\n  Top 10 relations:")
+    for rel, n in rel_counts.most_common(10):
+        print(f"    {rel}: {n}")
+    print()
+
+
+if __name__ == "__main__":
+    main()
