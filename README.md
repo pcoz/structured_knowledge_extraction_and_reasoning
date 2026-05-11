@@ -1,4 +1,4 @@
-# structured_knowledge_extraction_and_reasoning
+# Structured Knowledge Extraction and Reasoning
 
 A pipeline that takes unstructured text in and produces a queryable
 knowledge graph: extract structured facts, persist them, apply
