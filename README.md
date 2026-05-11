@@ -68,6 +68,12 @@ external dependencies.
   Derivation), KB API quickref, recipes (add a fact, add a relation
   type, add an inference rule, add a new domain, build a fresh KB,
   customise the matcher), performance notes, troubleshooting.
+- **[docs/USE_CASES.md](docs/USE_CASES.md)** — which LLM/RAG use
+  cases this architecture can take over, grouped by criticality
+  (regulated, technical, customer-facing, internal KM, research,
+  brand). For each: current approach, where it falls short, how
+  this addresses it, implementation sketch, what's gained. Plus
+  an explicit "where this does NOT replace LLMs" section.
 - **[docs/COMPARISONS.md](docs/COMPARISONS.md)** — side-by-side with
   the main alternative technologies (vector RAG, GraphRAG,
   LLM-as-KB, Wikidata, OpenIE, FrameNet, CYC, Neo4j, BERT-based

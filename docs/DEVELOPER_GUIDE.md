@@ -2,6 +2,7 @@
 
 > **See also**: [README](../README.md) ·
 > [ARCHITECTURE](ARCHITECTURE.md) ·
+> [USE_CASES](USE_CASES.md) ·
 > [COMPARISONS](COMPARISONS.md) ·
 > [NOVELTIES](NOVELTIES.md) ·
 > [LICENSE](../LICENSE.md)
