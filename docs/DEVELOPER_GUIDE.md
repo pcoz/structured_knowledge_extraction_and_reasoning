@@ -362,6 +362,216 @@ score += 5.0 * len(q_bigrams & p_bigrams)
 
 ---
 
+## AI-assisted maintenance — practical workflows
+
+The architecture's runtime is AI-free. Construction and maintenance,
+however, are exactly where an LLM coding assistant (Claude Code,
+Cursor, GitHub Copilot Chat, Aider, etc.) is most useful. Below are
+seven concrete workflows. Each shows what to feed the assistant,
+what to ask, and what to do with the output.
+
+These workflows replace the slow / manual / regex-tweaking parts of
+maintaining the KB with one-shot AI passes. The artifact that
+results is still inspectable JSON; the AI is the editor's assistant,
+not part of the running system.
+
+### 1. Find facts the extractor missed
+
+**Goal**: increase recall on an article whose KB coverage looks
+sparse.
+
+**Input to the assistant**:
+- The source article's cleaned prose (a few hundred lines)
+- The triples that `kb/extract.py` already produced for that article
+  (filter the JSON by `source_article`)
+
+**Prompt template**:
+> Here is the source text of the Wikipedia article on X.
+> Here are the structured triples already extracted for it.
+> Identify every additional fact in the source that should be in
+> this list but isn't. For each, give: subject, relation (from this
+> list: BORN_IN, BORN_DATE, ...), object, and the sentence index it
+> came from. Use the same relation vocabulary as the existing
+> triples. Skip facts you're uncertain about.
+
+**Output handling**: paste the missing facts into `PATCH_FACTS` in
+`src/kb/extract.py`. Re-run `query.py`; the entity card now has the
+new facts.
+
+---
+
+### 2. Validate facts the extractor produced
+
+**Goal**: find false-positive triples — facts that look reasonable
+but don't actually appear in the source.
+
+**Input to the assistant**:
+- A random sample of N=20-50 triples
+- For each, the source sentence (fetch by `source_article` +
+  `source_sentence_idx`)
+
+**Prompt template**:
+> For each triple below, the source sentence is shown. For each,
+> answer: (a) is the triple correctly extracted from this sentence?
+> (b) if no, what went wrong? Possible answers: correct, wrong
+> subject, wrong object, wrong relation, hallucinated (fact not in
+> sentence at all), over-extended span (entity captured too much
+> text).
+
+**Output handling**: triples flagged as wrong/hallucinated get
+removed from the JSON. Patterns of similar errors suggest extractor
+improvements (e.g., a verb anchor matching too loosely).
+
+---
+
+### 3. Suggest new verb anchors
+
+**Goal**: improve extractor recall by adding new patterns.
+
+**Input to the assistant**:
+- A sample of sentences from `wikipedia_utils.split_sentences` that
+  contain biographical-keyword verbs (born, died, wrote, married,
+  ...) but didn't yield any triples in the current extraction
+
+**Prompt template**:
+> Below are sentences that look like they should yield a fact but
+> the regex extractor missed them. For each, identify the verb
+> phrase that signals the relation, and propose a regex pattern
+> (anchored as `\b...\b`) plus the relation name. Group similar
+> patterns together. Output in the format of `VerbAnchor` entries
+> from src/kb/extract.py.
+
+**Output handling**: paste new entries into the `VERB_ANCHORS` list.
+Re-run extraction; sentences that previously fell through now yield
+triples.
+
+---
+
+### 4. Curate a corpus for a new domain
+
+**Goal**: bootstrap an Ahab- or git_rag-style corpus for a new
+domain (e.g., AWS CLI documentation, regulatory text, character
+quotes from a different novel).
+
+**Input to the assistant**:
+- The source documentation (uploaded directly or section by section)
+- The target schema (e.g., `KnowledgeItem` fields from
+  `src/git_rag/knowledge.py`)
+
+**Prompt template**:
+> Here is the AWS CLI documentation for the `aws s3` command family.
+> Produce one `KnowledgeItem` record per common operation. For each:
+> populate item_id, topic, subtopic, intent, question_patterns (list
+> of paraphrases a user might ask), commands (the actual aws s3 ...
+> invocations), explanation (1-3 sentences), cautions (gotchas), and
+> source (the AWS docs URL). Use the schema and conventions from
+> src/git_rag/knowledge.py exactly.
+
+**Output handling**: save as `src/aws_rag/knowledge.py`. Copy
+`src/git_rag/query.py` to `src/aws_rag/query.py`, adjust
+`TOPIC_KEYWORDS` and `DEMO_QUERIES`, and the new domain is live.
+
+---
+
+### 5. Generate stress-test queries
+
+**Goal**: find weak points in matcher coverage or in the KB's
+multi-hop reach.
+
+**Input to the assistant**:
+- The KB's relation distribution (output of `kb/query.py`'s "Top 10
+  relations" section)
+- A sample of entities (from "Top 25 most-connected entities")
+
+**Prompt template**:
+> Below are the relation types and most-connected entities in our
+> KB. Propose 20 queries that should be answerable from this KB:
+> - 5 single-hop factual lookups
+> - 5 two-hop chain queries (e.g., "X's student's conquests")
+> - 5 path queries between specific entity pairs
+> - 5 filter/aggregate queries (e.g., "all entities born in century N")
+> Mix easy and hard cases.
+
+**Output handling**: run each query against the KB. Failures are
+the prioritised work list — either KB coverage gaps (add patches)
+or matcher gaps (add patterns).
+
+---
+
+### 6. Propose new inference rules
+
+**Goal**: increase the KB's derived-fact yield by adding rules.
+
+**Input to the assistant**:
+- The list of existing relation types in the KB
+- The list of existing inference rules in `src/kb/reason.py`
+
+**Prompt template**:
+> Given these relation types (TUTORED_BY, CHILD_OF, CONQUERED,
+> SUCCEEDED, FOUNDED, RULER_OF, BORN_DATE, DIED_DATE, ...) and these
+> existing rules in src/kb/reason.py, propose 5 new Horn-clause
+> rules that derive useful new facts. For each: name, antecedents,
+> consequent, and a "since...therefore..." explanation. Skip rules
+> that produce noisy or trivially-true derivations.
+
+**Output handling**: add proposed rules as functions in
+`src/kb/reason.py`, register them in the `RULES` list. Re-run
+`reason.py`; the extended KB now has the new derivations.
+
+---
+
+### 7. Detect bad entities (parser errors)
+
+**Goal**: find entities that are extraction artifacts rather than
+real names.
+
+**Input to the assistant**:
+- The top 50 entities by mention count (from "Most-connected
+  entities" output)
+
+**Prompt template**:
+> Below are the 50 most-mentioned entities in our KB. For each,
+> classify as: (a) real entity, (b) parsing artifact (sentence-
+> initial word captured wrongly, adjective captured as part of
+> name, conjunction phrase captured as entity), (c) ambiguous. For
+> each artifact, suggest what stopword or pattern fix would
+> prevent it.
+
+**Output handling**: add identified artifact tokens to
+`ADJECTIVE_STOPWORDS` in `src/kb/extract.py`. Re-run extraction;
+spurious mentions drop out.
+
+---
+
+### Putting workflows together
+
+A typical AI-assisted maintenance pass:
+
+```
+1. Generate stress-test queries (workflow 5)
+2. Run them → identify failures
+3. For each failure, root-cause:
+   - Missing facts → workflow 1
+   - Wrong facts → workflow 2
+   - Missing patterns → workflow 3
+   - Missing inference rules → workflow 6
+4. Run workflow 7 to find parser artifacts
+5. Re-extract / re-reason, re-run queries
+6. Iterate until stress-test failures < threshold
+```
+
+The pass takes hours not weeks because each step is a single LLM
+call. The KB artifact improves at each iteration; the runtime code
+doesn't change.
+
+This is the maintenance story: **AI is a build-time editor, not a
+runtime dependency.** The cost of using an LLM-assisted workflow
+is a flat per-pass API cost (or one's own time with a coding
+assistant); the benefit is a better-quality KB serving free
+queries forever.
+
+---
+
 ## Performance notes
 
 - **KB load**: ~50 ms per MB of JSON. The 465 KB base KB loads in
