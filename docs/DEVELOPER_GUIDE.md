@@ -1,10 +1,18 @@
 # Developer guide
 
+> **See also**: [README](../README.md) ·
+> [ARCHITECTURE](ARCHITECTURE.md) ·
+> [COMPARISONS](COMPARISONS.md) ·
+> [NOVELTIES](NOVELTIES.md) ·
+> [LICENSE](../LICENSE.md)
+
 Practical reference for working with this codebase: code map, data
 model, API quickref, recipes, performance notes, troubleshooting.
 
 For the conceptual design see [ARCHITECTURE.md](ARCHITECTURE.md).
-For prior-art comparison see [NOVELTIES.md](NOVELTIES.md).
+For where this sits relative to similar technology see
+[COMPARISONS.md](COMPARISONS.md). For the prior-art positioning see
+[NOVELTIES.md](NOVELTIES.md).
 
 ---
 

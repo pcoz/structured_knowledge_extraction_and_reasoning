@@ -1,5 +1,11 @@
 # Architecture
 
+> **See also**: [README](../README.md) ·
+> [DEVELOPER_GUIDE](DEVELOPER_GUIDE.md) ·
+> [COMPARISONS](COMPARISONS.md) ·
+> [NOVELTIES](NOVELTIES.md) ·
+> [LICENSE](../LICENSE.md)
+
 A pipeline that takes unstructured text in and produces a queryable,
 inspectable, deductively reasonable, hallucination-free knowledge
 graph.

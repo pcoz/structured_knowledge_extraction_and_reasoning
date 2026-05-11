@@ -1,12 +1,20 @@
 # Comparisons — how this differs from similar technology
 
+> **See also**: [README](../README.md) ·
+> [ARCHITECTURE](ARCHITECTURE.md) ·
+> [DEVELOPER_GUIDE](DEVELOPER_GUIDE.md) ·
+> [NOVELTIES](NOVELTIES.md) ·
+> [LICENSE](../LICENSE.md)
+
 A side-by-side with the main alternatives. Each section: what the
 other system does, what it does well, where it falls short, how this
 project differs.
 
 For "what's new vs prior art" framed as architectural claims see
-[NOVELTIES.md](NOVELTIES.md). This doc is the user-facing
-"how does this compare to X?" reference.
+[NOVELTIES.md](NOVELTIES.md). For the architectural design itself
+see [ARCHITECTURE.md](ARCHITECTURE.md). For the practical API and
+recipes see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md). This doc is
+the user-facing "how does this compare to X?" reference.
 
 ---
 

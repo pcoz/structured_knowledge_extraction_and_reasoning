@@ -1,5 +1,11 @@
 # License
 
+> **See also**: [README](README.md) ·
+> [docs/ARCHITECTURE](docs/ARCHITECTURE.md) ·
+> [docs/DEVELOPER_GUIDE](docs/DEVELOPER_GUIDE.md) ·
+> [docs/COMPARISONS](docs/COMPARISONS.md) ·
+> [docs/NOVELTIES](docs/NOVELTIES.md)
+
 **Copyright © Edward Chalk.** All rights reserved.
 
 The architecture — including the structured-extraction → indexing →

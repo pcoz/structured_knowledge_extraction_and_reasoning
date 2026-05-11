@@ -1,8 +1,20 @@
 # Novelties — what's architecturally different
 
+> **See also**: [README](../README.md) ·
+> [ARCHITECTURE](ARCHITECTURE.md) ·
+> [DEVELOPER_GUIDE](DEVELOPER_GUIDE.md) ·
+> [COMPARISONS](COMPARISONS.md) ·
+> [LICENSE](../LICENSE.md)
+
 What this project contributes that isn't standard. Each item below
 has prior art in adjacent fields; the contribution is the unification
 into a working pipeline.
+
+For a side-by-side with each comparable technology (vector RAG,
+GraphRAG, Wikidata, OpenIE, FrameNet, CYC, ...) see
+[COMPARISONS.md](COMPARISONS.md). For the design see
+[ARCHITECTURE.md](ARCHITECTURE.md). For practical recipes see
+[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).
 
 ---
 
