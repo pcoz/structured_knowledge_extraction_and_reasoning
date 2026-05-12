@@ -211,6 +211,43 @@ here in specific ways. Definitions:
   rule's structure stay inspectable (one named record with a
   relation list) instead of being hidden inside Python branches.
 
+- **Interval** — a possibly-unbounded validity window on a triple,
+  via the optional `valid_from` / `valid_to` slots. The engine
+  intersects intervals when propagating temporal validity through
+  derivations; the `src/kb/temporal.py` module also provides the
+  full Allen algebra (13 atomic relations + composition table) for
+  callers that need richer temporal reasoning.
+
+- **Allen relation** — one of the 13 atomic relations from Allen's
+  interval algebra (before, meets, overlaps, starts, during,
+  finishes, equal, plus six converses). The standard formalism for
+  reasoning about temporal intervals.
+
+- **Confidence** — float in [0.0, 1.0] on each triple. Propagated
+  through derivations via noisy-AND by default (configurable to
+  min / noisy-OR / caller-supplied combiner). Semantic
+  interpretation (probabilistic, fuzzy, Bayesian, partial-belief)
+  is the caller's choice; the combinators are interpretation-
+  neutral.
+
+- **Conflict** — a set of triples that can't all be true under
+  the active axioms. Surfaced by the OWL rule compiler via
+  `CONFLICT_FUNCTIONAL`, `CONFLICT_INVERSE_FUNCTIONAL`, and
+  `CONTRADICTION_DETECTED` markers.
+
+- **Policy** — a strategy for resolving a conflict: which of the
+  conflicting triples survives. Implementations include
+  `LatestWinsPolicy`, `HighestConfidencePolicy`,
+  `AuthorityWinsPolicy`, `KeepAllPolicy`, `SurfaceForReviewPolicy`,
+  and `ChainPolicy` (try each in order until one narrows).
+
+- **Ontology** — the declarative source of OWL-style axioms
+  consumed by `src/kb/ontology_rules.py:compile_to_rules`. Captures
+  classes, properties, hierarchy, characteristics (transitive,
+  symmetric, functional, inverse-functional, inverse), equivalences,
+  disjointness, and domain/range — the subset of OWL that maps to
+  Horn + disjunctive + stratified-negation rules.
+
 ### Construction / serving terms
 
 - **Construction time** — when the KB is built. AI is involved
@@ -311,6 +348,51 @@ Three rule shapes are supported:
 - Function-form disjunction over object values is expressed as a
   plain `Rule` whose body checks `t.object in {…}` — natural
   Python idiom, no extra abstraction needed.
+
+Triple schema carries optional temporal and uncertainty slots:
+
+- **`valid_from` / `valid_to`** — ISO-8601-ish date strings (or
+  None for unbounded). The engine intersects input intervals when
+  propagating validity through derivation chains. A derivation
+  whose inputs are temporally inconsistent (empty intersection)
+  is silently suppressed. See `src/kb/temporal.py` for the
+  full Allen interval algebra (13 atomic relations + composition
+  table) and the lenient `intersects` predicate.
+
+- **`confidence`** — float in [0.0, 1.0], default 1.0. The engine
+  combines input confidences via noisy-AND (product) when
+  propagating through derivations. `src/kb/confidence.py` also
+  exposes `min`, `noisy_or`, and a callable hook for caller-
+  supplied combiners. Multiple semantic interpretations of the
+  number (probabilistic, fuzzy, subjective-Bayesian, partial-
+  belief) are equally well-supported; the combinators don't
+  prescribe a reading.
+
+OWL DSL and rule compiler:
+
+- `src/kb/ontology.py` declares a small OWL-compatible ontology
+  (classes, properties, sub-class / sub-property hierarchy,
+  equivalent / disjoint classes, transitive / symmetric / inverse
+  / functional / inverse-functional properties, domain / range).
+- `src/kb/ontology_rules.py` compiles an ontology to standard
+  `Rule` objects that plug into the same dispatcher as hand-written
+  rules. The compiler is pure stdlib and closed-world (matching
+  the engine's negation semantics).
+- Functional / inverse-functional axioms emit `CONFLICT_*` marker
+  facts when violated; the conflict module consumes them.
+
+Conflict detection and resolution:
+
+- `src/kb/conflict.py` reads `CONFLICT_*` and `CONTRADICTION_DETECTED`
+  markers produced by the OWL rules and reconstructs the
+  conflicting triples.
+- Six policies decide which triple in a conflict survives:
+  `LatestWinsPolicy`, `HighestConfidencePolicy`, `AuthorityWinsPolicy`,
+  `KeepAllPolicy`, `SurfaceForReviewPolicy`, plus `ChainPolicy` for
+  ordered fallback.
+- `apply_with_conflict_resolution` orchestrates fixpoint inference
+  + conflict detection + resolution into one pipeline that returns
+  a clean resolved KB along with the conflicts found.
 
 ---
 
@@ -640,13 +722,18 @@ Three demos in this repo cover three source-text types:
 | Encyclopedic | Wikipedia article dump | `src/kb/query.py` | `src/kb/reason.py` |
 | Fictional / conversational | Moby-Dick (Ahab's quotes) | `src/ahab/talk.py` | `src/ahab/reason.py` |
 | Software documentation | Git manual | `src/git_rag/query.py` | `src/git_rag/reason.py` |
+| Knowledge distillation | multi-source noisy corpus | — | `src/distill/purify.py` |
 
-The same reasoning engine drives all three reasoners — only the
-projection from domain records into Triple form differs.
-`src/ahab/reason.py` derives theme co-occurrence networks and
-classifies utterances by speech-act and mood. `src/git_rag/reason.py`
+The same reasoning engine drives all four reasoners — only the
+projection from domain records into Triple form (and the choice of
+ontology axioms) differs. `src/ahab/reason.py` derives theme
+co-occurrence networks and classifies utterances. `src/git_rag/reason.py`
 derives transitive topic-navigation and an automation-safety flag.
-Both reuse the engine in `src/kb/reason.py` unchanged.
+`src/distill/purify.py` runs the full purification sweep over a
+deliberately-noisy multi-source corpus: detect conflicts, resolve via
+a chain policy, corroborate multi-source agreement via noisy-OR, prune
+below threshold, strip markers. All four reuse the engine in
+`src/kb/reason.py` unchanged.
 
 To add a new domain (e.g., medical guidelines, legal codes,
 scientific literature):

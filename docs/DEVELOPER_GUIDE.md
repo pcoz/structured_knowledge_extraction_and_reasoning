@@ -37,11 +37,59 @@ src/
 │   │
 │   ├── reason.py         Inference engine: fixpoint over Horn rules,
 │   │                     declarative disjunctive rules, stratified
-│   │                     negation-as-failure. Bundled stress-test suite.
+│   │                     negation-as-failure. Bundled stress-test suite
+│   │                     (10 scenarios).
 │   │                     KEY CLASSES: Rule, DisjunctiveRule, Derivation
-│   │                     KEY FUNCS: apply_all_rules_to_fixpoint,
+│   │                     KEY FUNCS: apply_all_rules_to_fixpoint
+│   │                                (propagate_confidence/temporal flags),
 │   │                                kb_has, stress_test,
 │   │                                individual r1..r11 rules
+│   │
+│   ├── temporal.py       Interval algebra. The full 13-relation Allen
+│   │                     calculus + composition table, plus the
+│   │                     permissive `intersects` and interval
+│   │                     intersection used by the engine to propagate
+│   │                     validity through derivation chains.
+│   │                     KEY CLASSES: Interval
+│   │                     KEY FUNCS: intersects, intersection,
+│   │                                intersection_of_inputs, valid_at,
+│   │                                before/after/meets/overlaps/...,
+│   │                                compose, invert
+│   │
+│   ├── confidence.py     Uncertainty combinators. noisy-AND (default),
+│   │                     min, noisy-OR, plus a callable hook for
+│   │                     custom combiners. Interpretation-neutral —
+│   │                     probabilistic, fuzzy, or subjective-Bayesian
+│   │                     readings all use the same combinators.
+│   │                     KEY FUNCS: noisy_and, noisy_or, min_confidence,
+│   │                                derive_confidence, merge_confidence,
+│   │                                drop_below
+│   │
+│   ├── ontology.py       Declarative OWL-style ontology DSL. A small
+│   │                     dataclass for classes, properties, subClass /
+│   │                     subProperty, equivalent / disjoint classes,
+│   │                     transitive / symmetric / inverse / functional
+│   │                     / inverse-functional properties, domain / range.
+│   │                     Bundled stress-test suite (11 scenarios).
+│   │                     KEY CLASSES: Ontology
+│   │
+│   ├── ontology_rules.py Compile an Ontology into Rule objects that the
+│   │                     existing engine runs. Pure stdlib; closed-
+│   │                     world. Functional / inverse-functional rules
+│   │                     emit CONFLICT_* markers consumed by conflict.py.
+│   │                     KEY FUNCS: compile_to_rules
+│   │
+│   ├── conflict.py       Conflict detection (over CONFLICT_* markers)
+│   │                     and resolution policies. Stress-test suite
+│   │                     (11 scenarios) covering temporal overlap,
+│   │                     authority-ranked sources, confidence-based
+│   │                     resolution, and disjoint-class contradictions.
+│   │                     KEY CLASSES: Conflict, Policy (LatestWins,
+│   │                                  HighestConfidence, AuthorityWins,
+│   │                                  KeepAll, SurfaceForReview,
+│   │                                  ChainPolicy)
+│   │                     KEY FUNCS: detect_conflicts, resolve_conflicts,
+│   │                                apply_with_conflict_resolution
 │   │
 │   ├── kb_1000_articles.json           pre-built base KB (2,169 triples)
 │   └── kb_1000_articles_extended.json  base + derived facts
@@ -62,23 +110,38 @@ src/
 │                         confrontational/introspective classification,
 │                         peaceful-addressee (negation over derived)
 │
-└── git_rag/              enterprise RAG demo over Git docs
-    ├── knowledge.py      37 structured Git knowledge items
-    │                     KEY CLASS: KnowledgeItem (topic, subtopic,
-    │                                intent, question_patterns,
-    │                                commands, explanation, cautions,
-    │                                source, related_items)
-    │                     KEY DATA: GIT_KB list
+├── git_rag/              enterprise RAG demo over Git docs
+│   ├── knowledge.py      37 structured Git knowledge items
+│   │                     KEY CLASS: KnowledgeItem (topic, subtopic,
+│   │                                intent, question_patterns,
+│   │                                commands, explanation, cautions,
+│   │                                source, related_items)
+│   │                     KEY DATA: GIT_KB list
+│   │
+│   ├── query.py          intent + topic detection, scoring, rendering
+│   │                     KEY FUNCS: detect_intent, detect_topics,
+│   │                                score_item, query, format_answer
+│   │
+│   └── reason.py         apply the kb.reason engine to the Git docs:
+│                         transitive RELATED_TO closure (via OWL),
+│                         NEEDS_OPERATOR_ATTENTION (disjunctive over
+│                         HAS_CAUTION ∪ USES_DESTRUCTIVE_COMMAND),
+│                         SAFE_TO_AUTOMATE (negation over derived)
+│
+└── distill/              knowledge distillation / purification demo
+    ├── corpus.py         deliberately-noisy multi-source astronomical
+    │                     corpus exhibiting all four pathologies:
+    │                     corroboration, functional-property conflicts,
+    │                     outdated estimates, low-authority noise.
+    │                     ~65 facts from 7 sources of varying authority.
+    │                     KEY DATA: _RAW_FACTS, SOURCE_AUTHORITY
     │
-    ├── query.py          intent + topic detection, scoring, rendering
-    │                     KEY FUNCS: detect_intent, detect_topics,
-    │                                score_item, query, format_answer
-    │
-    └── reason.py         apply the kb.reason engine to the Git docs:
-                          transitive RELATED_TO closure,
-                          NEEDS_OPERATOR_ATTENTION (disjunctive over
-                          HAS_CAUTION ∪ USES_DESTRUCTIVE_COMMAND),
-                          SAFE_TO_AUTOMATE (negation over derived)
+    └── purify.py         the purification pipeline: OWL conflict
+                          detection → chain-policy resolution →
+                          multi-source corroboration boost (noisy-OR) →
+                          confidence-threshold pruning → marker cleanup.
+                          Bundled stress-test suite (6 scenarios).
+                          KEY FUNCS: purify, corroborate, prune_below
 ```
 
 ---
@@ -92,13 +155,23 @@ The basic unit of the knowledge graph.
 ```python
 @dataclass
 class Triple:
+    # Core schema — present since v1; all required.
     subject: str                    # e.g., "Aristotle"
     relation: str                   # e.g., "TUTORED_BY"
     object: str                     # e.g., "Plato"
     source_article: str             # e.g., "Aristotle"  (or "(derived)")
     source_sentence_idx: int        # 0-based index in the source article;
                                     # -1 for derived or curated facts
+
+    # Schema extensions — optional, with defaults matching v1 semantics.
+    valid_from: str | None = None   # ISO date; None = -infinity
+    valid_to:   str | None = None   # ISO date; None = +infinity
+    confidence: float = 1.0         # [0.0, 1.0]; default = certain
 ```
+
+Old JSON files (without the new fields) load unchanged via
+`KB.load`, which filters unknown keys and applies defaults for
+missing ones.
 
 ### KB JSON schema
 
@@ -301,6 +374,126 @@ LEARNED_FROM = DisjunctiveRule(
 )
 RULES.append(LEARNED_FROM.to_rule())
 ```
+
+### Declare an OWL-style ontology
+
+```python
+from kb.ontology import Ontology
+from kb.ontology_rules import compile_to_rules
+from kb.reason import RULES, apply_all_rules_to_fixpoint
+
+ont = (
+    Ontology("biographical")
+    .transitive_property("ANCESTOR_OF")
+    .symmetric_property("SIBLING_OF")
+    .inverse_properties("TUTORED", "TUTORED_BY")
+    .sub_property_of("TUTORED_BY", "INFLUENCED_BY")
+    .subclass_of("Philosopher", "Person")
+    .subclass_of("Person", "Mortal")
+    .equivalent_classes("Sage", "Wise_One")
+    .disjoint_with("Living", "Deceased")
+    .functional_property("BIRTH_DATE")
+    .inverse_functional_property("HAS_DOI")
+    .domain("CONQUERED", "Person")
+    .range("CONQUERED", "Place")
+)
+
+owl_rules = compile_to_rules(ont)
+combined = list(RULES) + owl_rules
+kb_ext, derivations, stats = apply_all_rules_to_fixpoint(kb, rules=combined)
+```
+
+The compiled rules carry `owl:` / `rdfs:` prefixes in their names
+so OWL-derived facts are distinguishable from hand-written rules
+in derivation logs.
+
+### Use temporal slots
+
+Attach `valid_from` / `valid_to` to triples; the engine intersects
+intervals when propagating temporal validity through derivations.
+Temporally inconsistent inputs cause the derivation to be silently
+suppressed.
+
+```python
+from kb.query import Triple
+from kb.temporal import Interval, intersects, valid_at, compose
+
+# Create a triple with a validity window.
+t = Triple(
+    "Plato", "TUTORED_BY", "Socrates",
+    "Plato", -1,
+    valid_from="407 BC", valid_to="399 BC",
+)
+
+# Check whether two facts coexist in time.
+if intersects(Interval(t.valid_from, t.valid_to), other_interval):
+    ...
+
+# Point-in-time check.
+if valid_at(t, "400 BC"):
+    ...
+
+# Compose Allen relations (for compound temporal reasoning).
+possible = compose("before", "overlaps")  # frozenset of relations
+```
+
+### Use confidence
+
+```python
+from kb.confidence import (
+    noisy_and, noisy_or, derive_confidence, drop_below,
+)
+
+# Combine input confidences.
+derived_conf = derive_confidence([0.8, 0.5], mode="product")  # 0.40
+derived_conf = derive_confidence([0.7, 0.6], mode="noisy_or") # 0.88
+
+# Filter low-confidence triples out of an artifact before serialising.
+solid = drop_below(kb.triples, threshold=0.5)
+```
+
+The engine propagates confidence automatically when
+`apply_all_rules_to_fixpoint` is called with `propagate_confidence=True`
+(the default). Each derivation gets confidence = noisy-AND of its
+inputs.
+
+### Detect and resolve conflicts
+
+```python
+from kb.conflict import (
+    apply_with_conflict_resolution,
+    LatestWinsPolicy, HighestConfidencePolicy, AuthorityWinsPolicy,
+    SurfaceForReviewPolicy, ChainPolicy,
+)
+from kb.ontology import Ontology
+
+ont = (
+    Ontology()
+    .functional_property("BIRTH_DATE")
+    .functional_property("CURRENT_EMPLOYER")
+    .disjoint_with("Living", "Deceased")
+)
+
+# Single policy.
+resolved, derivs, conflicts, stats = apply_with_conflict_resolution(
+    kb, ontology=ont, policy=LatestWinsPolicy(),
+)
+
+# Chain of policies — try each in order; first to narrow wins.
+chain = ChainPolicy([
+    AuthorityWinsPolicy(),
+    LatestWinsPolicy(),
+    HighestConfidencePolicy(),
+    SurfaceForReviewPolicy(),
+])
+resolved, derivs, conflicts, stats = apply_with_conflict_resolution(
+    kb, ontology=ont, policy=chain,
+)
+```
+
+The resolved KB has dropped triples removed and CONFLICT_* markers
+cleaned up. With `SurfaceForReviewPolicy`, `CONFLICT_UNRESOLVED`
+triples are added in their place for human review.
 
 ### Add a negation-as-failure rule
 
@@ -664,19 +857,46 @@ To verify behaviour after a change:
 ```bash
 python src/kb/query.py                 # entity cards + multi-hop chains
 python src/kb/reason.py                # rule derivations + 10 stress tests
+python src/kb/ontology.py              # OWL DSL demo + 11 stress tests
+python src/kb/conflict.py              # conflict-resolution 11 stress tests
 python src/ahab/talk.py                # 13 Q&A turns; chapter citations
 python src/ahab/reason.py              # structured reasoning over utterances
 python src/git_rag/query.py            # 15 Git Q&A; manual-section sources
 python src/git_rag/reason.py           # structured reasoning over Git docs
+python src/distill/purify.py           # knowledge distillation + 6 stress tests
 ```
 
-`stress_test()` inside `src/kb/reason.py` pins ten engine
-properties with `assert` statements: deep-chain transitive closure,
-disjunctive-rule firing across alternatives, stratified negation,
-cycle convergence, empty-KB safety, alias canonicalisation, ordering
-invariance, run-to-run determinism, divergence detection, and
-arbitrary-stratum dispatch. If any of those fail, the script exits
-non-zero — that's the regression signal.
+Three assertion-backed stress suites pin engine properties:
+
+- `kb/reason.py:stress_test` — ten scenarios covering deep-chain
+  transitive closure, disjunctive-rule firing across alternatives,
+  stratified negation, cycle convergence, empty-KB safety, alias
+  canonicalisation, ordering invariance, run-to-run determinism,
+  divergence detection, and arbitrary-stratum dispatch.
+
+- `kb/ontology.py:_stress_test` — eleven scenarios exercising the
+  full OWL DSL: TransitiveProperty, SymmetricProperty,
+  InverseProperties, SubPropertyOf chains, SubClassOf chains,
+  EquivalentProperties, EquivalentClasses, DisjointWith
+  (contradiction detection), domain/range, composed axioms, and
+  determinism.
+
+- `kb/conflict.py:_stress_test` — eleven scenarios covering
+  functional-property violations (with temporal-overlap scoping),
+  inverse-functional-property violations, every resolution policy
+  (LatestWins, HighestConfidence, AuthorityWins, SurfaceForReview,
+  ChainPolicy), confidence propagation through derivations,
+  temporal-validity propagation, and backward compatibility with
+  v1 triple shapes.
+
+- `distill/purify.py:_stress_test` — six scenarios verifying the
+  knowledge-distillation pipeline: noisy-OR corroboration boost,
+  confidence-threshold pruning, marker preservation, end-to-end
+  purification of the bundled noisy corpus, temporal scoping of
+  classification changes, and authority-driven conflict resolution.
+
+If any assertion fails, the script exits non-zero — that's the
+regression signal.
 
 For automated regression on the demo output: pipe to files and diff
 against a known-good baseline.

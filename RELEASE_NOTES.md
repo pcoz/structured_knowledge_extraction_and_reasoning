@@ -15,6 +15,135 @@ Datetime-stamped record of significant work. Times are local
 
 ## 2026-05-12
 
+### New example suite: knowledge distillation / purification
+
+Added `src/distill/` — a fourth demo suite focused on the canonical
+"noisy in, clean out" workflow that the temporal + confidence +
+conflict capabilities now enable end-to-end.
+
+  - `src/distill/corpus.py` — a deliberately-noisy multi-source
+    astronomical-facts corpus (~65 facts from seven fictional sources
+    of varying authority: IAU_2023, NASA_factsheet, peer-reviewed
+    paper, britannica_1985, old_encyclopedia_1965, textbook_2010,
+    blog_post). The corpus is engineered to exhibit every pathology
+    the purification pipeline targets — corroborated multi-source
+    agreement, functional-property conflicts (different masses for
+    the same body), outdated measurements (Andromeda's distance
+    progressively revised from 1.0e6 to 2.5e6 light-years), and
+    low-authority noise standing alone.
+
+  - `src/distill/purify.py` — the full pipeline: OWL conflict
+    detection → ChainPolicy resolution (Authority → Latest →
+    HighestConfidence → SurfaceForReview) → multi-source
+    corroboration boost (noisy-OR) → confidence-threshold pruning →
+    marker cleanup. Returns a clean canonical KB plus a
+    `PurificationReport` describing what was changed and why. Six
+    assertion-backed stress scenarios.
+
+End-to-end on the bundled corpus: 66 → 29 triples, 28 functional-
+property conflicts detected, 15 multi-source groups merged, 3
+standalone low-confidence facts pruned. The famous Pluto edge case
+behaves correctly: classifications Planet (valid until 2006-08-23)
+and DwarfPlanet (valid from 2006-08-24) are temporally disjoint and
+NOT flagged as a conflict — both survive as facts of different eras.
+
+Documentation updated:
+  - `README.md`: new demo description; three new "Who this is for"
+    rows covering multi-source reconciliation, time-varying facts,
+    and disputed-information audit trails.
+  - `docs/ARCHITECTURE.md`: distillation row added to the
+    "Extending to new domains" table.
+  - `docs/DEVELOPER_GUIDE.md`: distill/ added to the code map; the
+    six stress scenarios listed in the testing section.
+
+### General-purpose engine extensions: OWL DSL, temporal, uncertainty, conflicts
+
+Closed three architectural gaps that mattered for the engine being a
+general-purpose reasoning facility rather than a narrow demo. Schema-
+compatible throughout — existing JSON KBs load unchanged.
+
+**OWL ontology DSL (`src/kb/ontology.py`, `src/kb/ontology_rules.py`):**
+A small declarative DSL for OWL-style axioms — classes, properties,
+sub-class / sub-property hierarchy, transitive / symmetric / inverse
+/ functional / inverse-functional properties, equivalent / disjoint
+classes, domain / range. The compiler emits standard `Rule` objects
+into the existing engine; closed-world; no external DL reasoner.
+Functional / inverse-functional axioms emit `CONFLICT_*` markers
+consumed by the conflict module. Eleven stress-test scenarios pin
+the compiler's behaviour. Earlier in the day the OWL DSL was
+introduced without functional/inverse-functional axioms — those are
+added now.
+
+**Temporal slots + Allen algebra (`src/kb/temporal.py`):**
+Optional `valid_from` / `valid_to` fields on every Triple (ISO date
+strings; None = unbounded). Full Allen interval algebra (13 atomic
+relations + composition table + relation inversion). The lenient
+`intersects` predicate is used by the engine and the conflict
+detector for "do these triples coexist in time?" tests. The engine
+intersects input intervals when propagating temporal validity
+through derivations; temporally inconsistent inputs silently
+suppress the derivation. Date parser handles full ISO, year-month,
+year-only, and BC forms.
+
+**Confidence / uncertainty (`src/kb/confidence.py`):**
+Optional `confidence` field on every Triple (float in [0.0, 1.0],
+default 1.0). Combinators: `noisy_and` (default, product), `min`
+(weakest-link), `noisy_or` (independent-evidence). `derive_confidence`
+accepts a mode string or a caller-supplied callable. Engine
+propagates input confidences through derivations via noisy-AND when
+its `propagate_confidence` flag is set (default on). Multiple
+semantic interpretations of the number — probabilistic, fuzzy,
+subjective-Bayesian, partial-belief — equally well-supported; the
+combinators don't prescribe a reading.
+
+**Conflict detection + resolution (`src/kb/conflict.py`):**
+`detect_conflicts` reads the `CONFLICT_*` and `CONTRADICTION_DETECTED`
+markers produced by the OWL rules. Six pluggable policies:
+`LatestWinsPolicy` (latest `valid_from`), `HighestConfidencePolicy`,
+`AuthorityWinsPolicy` (uses `KB.source_authority`), `KeepAllPolicy`,
+`SurfaceForReviewPolicy` (keeps everything + emits
+`CONFLICT_UNRESOLVED` markers), `ChainPolicy` (try each in order;
+first to narrow wins). `apply_with_conflict_resolution` orchestrates
+the full pipeline: fixpoint inference → conflict detection →
+resolution → clean resolved KB. Eleven stress-test scenarios pin
+behaviour across temporal overlap, source-authority ranking,
+confidence-based resolution, and disjoint-class contradiction.
+
+**Engine wiring (`src/kb/reason.py`):**
+`apply_all_rules_to_fixpoint` gained two opt-in flags
+(`propagate_confidence=True`, `propagate_temporal=True`, both
+default on) and a `confidence_mode` parameter. Propagation is a
+dispatcher-level wrapper — existing rules require no changes. With
+default-confidence (1.0) and unbounded-temporal (None/None) inputs
+the propagation is a no-op, so v1 triples flow through unchanged.
+`KB.source_authority` was added (default empty dict) and `KB.load`
+preserves it across the fixpoint rebuild. `KB.load` is also more
+forgiving — filters unknown keys and applies defaults for missing
+optional fields, so old JSON keeps working forever.
+
+**Schema (`src/kb/query.py`):**
+`Triple` gained optional `valid_from`, `valid_to`, `confidence`
+fields. `KB` gained an optional `source_authority` dict. Both
+backward-compatible via defaults; old JSON files load unchanged.
+
+**Documentation:**
+- `docs/ARCHITECTURE.md`: extended Layer-2 description with the
+  temporal / uncertainty / conflict mechanisms; new glossary
+  entries for Interval, Allen relation, Confidence, Conflict,
+  Policy, Ontology.
+- `docs/DEVELOPER_GUIDE.md`: code map adds temporal.py,
+  confidence.py, ontology.py, ontology_rules.py, conflict.py;
+  four new recipes (OWL ontology, temporal slots, confidence,
+  conflict resolution); testing section names all three
+  stress-test suites (32 assertions total).
+- `docs/COMPARISONS.md`: CYC inference-power bullet rewritten;
+  summary-table "Formal reasoning" cell now reflects the full
+  capability surface.
+- `docs/NOVELTIES.md`: "demonstrated vs claimed" table adds rows
+  for temporal validity, uncertainty, and conflict resolution.
+- `README.md`: capability bullets reflect time-aware queries and
+  conflict-resolution policies.
+
 ### Reasoning-engine extension
 
 Extended `src/kb/reason.py` beyond single-pass Horn to cover the three

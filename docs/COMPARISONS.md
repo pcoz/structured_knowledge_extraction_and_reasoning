@@ -263,10 +263,31 @@ OWL is the W3C standard for description-logic ontologies.
   different path.
 - **Inference power**: Horn-clause forward chaining run to fixpoint,
   with declarative disjunctive rules and stratified negation-as-failure
-  for absence-checking under the closed-world assumption. Simpler than
-  OWL's full description-logic (no description-logic subsumption, no
-  full FOL theorem proving) but covers transitive closure, disjunctive
-  antecedents, and absence — and is easier to extend.
+  for absence-checking under the closed-world assumption. A
+  compile-to-rules OWL DSL (`src/kb/ontology.py`) covers class
+  hierarchies, sub-properties, transitive / symmetric / inverse /
+  functional / inverse-functional properties, equivalent and
+  disjoint classes, and domain/range — most of practical OWL usage
+  without an external DL reasoner.
+- **Temporal reasoning**: optional `valid_from` / `valid_to` slots
+  on every triple. The full Allen interval algebra (13 atomic
+  relations + composition table) ships in `src/kb/temporal.py`.
+  The engine propagates temporal validity through derivation chains
+  by intersecting input intervals; temporally inconsistent inputs
+  silently suppress the derivation.
+- **Confidence / uncertainty**: optional confidence slot on every
+  triple, propagated through derivations via noisy-AND (default),
+  noisy-OR, min, or a caller-supplied combiner. Interpretation
+  (probabilistic, fuzzy, subjective-Bayesian) is the caller's choice.
+- **Conflict resolution**: `src/kb/conflict.py` detects functional /
+  inverse-functional / disjoint-class violations and resolves them
+  via pluggable policies (latest-wins, highest-confidence,
+  authority-wins, surface-for-review, or a composed chain). Runs at
+  construction time; the shipped artifact is pre-resolved.
+- Simpler than full OWL DL (no description-logic subsumption, no
+  cardinality restrictions, no full FOL theorem proving, no
+  open-world semantics, no higher-order logic, no microtheories)
+  but easier to extend.
 - Native text integration: the KB and the source text are
   bidirectionally linked.
 - Trade-off: smaller ontology than CYC; less formal-logic power
@@ -355,7 +376,7 @@ mentions.
 | Edge-deployable | partial | no | no | partial | n/a | n/a | yes | partial | **yes** |
 | Construction effort | low | medium (LLM) | training | huge (curation) | low (auto) | huge (curation) | huge | low | medium (curate or AI-extract) |
 | Open vocabulary | yes | yes | yes | partial | yes | no | no | n/a | partial |
-| Formal reasoning | no | weak | no | weak | no | no | yes (DL) | weak | **yes (Horn + disjunction + stratified negation, fixpoint)** |
+| Formal reasoning | no | weak | no | weak | no | no | yes (DL) | weak | **yes (Horn + disjunction + stratified negation + OWL DSL + Allen temporal algebra + uncertainty combinators, all at fixpoint)** |
 
 ---
 
