@@ -15,6 +15,50 @@ Datetime-stamped record of significant work. Times are local
 
 ## 2026-05-12
 
+### New example suite: diachronic analysis (changing patterns of thinking)
+
+Added `src/diachronic/` — a fifth demo suite tracking how the same
+subject material has been *assembled differently* across historical
+eras. The atom is the worked example: 2,500 years of natural
+philosophy and science, six distinct paradigms, the same word with
+genuinely different IS_A classifications, properties, and organising
+vocabulary in each period.
+
+  - `src/diachronic/corpus.py` — ~60 dated triples from primary
+    sources across Greek atomism, Aristotelian rejection, Newtonian
+    mechanics, Daltonian chemistry, Rutherford/Bohr, and quantum
+    mechanics. Per-source authority weights, temporal slots on every
+    fact, schema-as-data: the IS_A class itself shifts across eras.
+
+  - `src/diachronic/analyse.py` — analyzer that surfaces per-era
+    snapshots, schema drift (which IS_A classifications appeared /
+    retired in each era), property reversals (the affirmed-for-
+    2,000-years-then-rejected trajectory of "indivisible"),
+    vocabulary drift (Jaccard distance across organising verbs),
+    and authorial lineages.
+
+  - Crucially, the analyzer prints prose alongside its output
+    explaining *why* this kind of representation matters for
+    knowledge representation, and *why* LLMs struggle specifically:
+    era-mixing (blending all training data into one answer),
+    reversal-erasure (smoothing over paradigm shifts), schema-
+    flattening (losing the structural fact that the IS_A class
+    itself changed). The demo is teaching material as well as a
+    capability showcase.
+
+  - Five assertion-backed stress scenarios pin the analyzer's
+    properties: multi-era coverage, distinct IS_A class sets per
+    era, the indivisibility reversal trajectory, temporal scoping
+    preventing flattening into conflict, and measurable vocabulary
+    drift across eras.
+
+Documentation updates: README adds a fifth demo section; the
+ARCHITECTURE.md cross-domain table now lists diachronic analysis;
+USE_CASES.md adds a new category (40–43) covering history of
+science, evolving legal interpretation, evolving medical
+understanding, and contested-terminology tracking; DEVELOPER_GUIDE
+adds the suite to the code map and testing section.
+
 ### Project name: SKEAR
 
 The project now goes by SKEAR (Structured Knowledge Extraction And
