@@ -158,12 +158,20 @@ class _NameMap:
 
 def _build_owl_world(ontology: Ontology, kb: KB):
     """Construct an owlready2 ontology populated with our axioms +
-    the KB triples as an ABox. Returns (onto, name_map). Caller is
-    responsible for invoking the reasoner."""
+    the KB triples as an ABox. Returns (world, onto, name_map,
+    individuals, owl_classes). Caller is responsible for invoking
+    the reasoner.
+
+    Uses a fresh owlready2 `World` per call rather than the global
+    `default_world` — otherwise class/property namespaces accumulate
+    across successive invocations (the same ontology URL returns a
+    cached, polluted ontology), producing spurious inconsistencies
+    on the second and subsequent calls."""
     or2 = _require_owlready2()
     names = _NameMap()
 
-    onto = or2.get_ontology(
+    world = or2.World()
+    onto = world.get_ontology(
         f"http://sker.local/{_sanitize(ontology.name)}.owl#"
     )
 
@@ -347,7 +355,7 @@ def _build_owl_world(ontology: Ontology, kb: KB):
             else:
                 setattr(subj, names._fwd[t.relation], [obj_ind])
 
-    return onto, names, individuals, owl_classes
+    return world, onto, names, individuals, owl_classes
 
 
 # ----------------------------------------------------------------------
@@ -382,7 +390,7 @@ def hermit_enrich(
     """
     or2 = _require_owlready2()
 
-    onto, names, individuals, owl_classes = _build_owl_world(ontology, kb)
+    world, onto, names, individuals, owl_classes = _build_owl_world(ontology, kb)
 
     # Snapshot the EXPLICITLY-asserted class memberships per individual.
     # After reasoning, we'll compare against `INDIRECT_is_a` (which
@@ -409,9 +417,12 @@ def hermit_enrich(
     try:
         with onto:
             if reasoner == "pellet":
-                or2.sync_reasoner_pellet(infer_property_values=True, debug=debug)
+                # x argument: target this specific world, not the global default.
+                or2.sync_reasoner_pellet(
+                    x=world, infer_property_values=True, debug=debug,
+                )
             else:
-                or2.sync_reasoner_hermit(debug=debug)
+                or2.sync_reasoner_hermit(x=world, debug=debug)
     except or2.base.OwlReadyInconsistentOntologyError as e:
         info["consistent"] = False
         marker = Triple(
