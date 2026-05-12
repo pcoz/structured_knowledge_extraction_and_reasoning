@@ -92,7 +92,13 @@ PRONOUN_SUBJECTS_RE = re.compile(
 
 
 def resolve_pronouns(text: str, article_title: str) -> str:
-    """Substitute subject-position pronouns with the article title."""
+    """Substitute subject-position pronouns with the article title.
+
+    Skip very long article titles: substituting "He" with a 60-char
+    article title turns ordinary sentences into unreadable parses
+    and the entity-span detector then captures the whole inserted
+    name as part of unrelated nearby phrasing. Articles with long
+    titles are rare and typically not biographies anyway."""
     if len(article_title.split()) > 5 or len(article_title) > 60:
         return text
     return PRONOUN_SUBJECTS_RE.sub(article_title, text)
@@ -130,33 +136,44 @@ def find_entity_spans(text: str) -> list[tuple[int, int, str]]:
     An entity span is a maximal run of capitalized words with allowed
     connectors. Truncated at adjective/nationality stopwords (since
     those don't extend names — they qualify the next noun).
+
+    Greedy extension means "Alexander the Great" matches as one span
+    rather than as ["Alexander", "Great"] — important for the alias
+    map and for downstream entity-card lookups.
     """
     spans = []
-    # Token positions: words and their character offsets.
+    # Allow apostrophes inside words ("O'Brien", "d'Ambrosio") but the
+    # outer \b boundaries keep the match limited to whole word forms.
     word_re = re.compile(r"\b[A-Za-z][\w]*'?[\w]*\b")
     tokens = [(m.start(), m.end(), m.group(0)) for m in word_re.finditer(text)]
     i = 0
     while i < len(tokens):
         start_c, end_c, word = tokens[i]
-        # Start of a span: must be a capitalized word, not in adjective
-        # stoplist.
+        # A span must START on a capitalised word that isn't an
+        # adjective/nationality/sentence-initial marker. Otherwise
+        # skip — most stopwords land here.
         if not word[0].isupper() or word in ADJECTIVE_STOPWORDS:
             i += 1
             continue
-        # Extend the span greedily.
+        # Greedy extension: keep appending tokens while they look
+        # like they belong in the same name.
         span_start_c = start_c
         span_end_c = end_c
         span_words = [word]
         j = i + 1
         while j < len(tokens):
             ns, ne, nw = tokens[j]
-            # Allow Roman numerals like II, III.
+            # Roman numerals like "II", "III", "IV" — common in regnal
+            # names (Henry VIII, Elizabeth II) so they extend the span.
             if re.fullmatch(r"[IVX]+", nw):
                 span_end_c = ne
                 span_words.append(nw)
                 j += 1
                 continue
-            # Allow connectors only if followed by a capitalized word.
+            # Connectors ("of", "the", "von", "de", ...) extend a span
+            # only when followed by another capitalised word — that's
+            # how "Alexander the Great" stays one entity but "moved
+            # to the city" doesn't accidentally include "the city".
             if nw.lower() in ENTITY_CONNECTORS:
                 if j + 1 < len(tokens):
                     ns2, ne2, nw2 = tokens[j + 1]
@@ -167,16 +184,20 @@ def find_entity_spans(text: str) -> list[tuple[int, int, str]]:
                         j += 2
                         continue
                 break
-            # Continue with another capitalized word (no connector).
+            # Bare capitalised word continues the span (e.g.
+            # "Albert Einstein" — two consecutive Caps tokens).
             if nw[0].isupper() and nw not in ADJECTIVE_STOPWORDS:
                 span_end_c = ne
                 span_words.append(nw)
                 j += 1
                 continue
+            # Anything else terminates the span.
             break
         if len(span_words) >= 1:
             entity = " ".join(span_words)
             spans.append((span_start_c, span_end_c, entity))
+        # Advance past the span we just consumed. Guard against j==i
+        # (no extension happened) which would otherwise loop forever.
         i = j if j > i else i + 1
     return spans
 
@@ -250,26 +271,32 @@ VERB_ANCHORS = [
 ]
 
 
-# Lifespan parenthetical patterns. Two variants:
-#   1. Ancient form: "Name (..., NNNN BC – NNNN BC)"
-#   2. Modern form:  "Name (..., NNNN – NNNN)" (no BC/AD; 4-digit year)
+# Lifespan parenthetical patterns. The intent is to recognise the
+# stylised "Name (… birth-year – death-year …)" form that opens most
+# Wikipedia biographical articles, then emit BORN_DATE and DIED_DATE.
+#
+# Two variants because the surface forms differ:
+#   1. Ancient form: "Name (..., NNNN BC – NNNN BC)"  — explicit eras
+#   2. Modern form:  "Name (..., NNNN – NNNN)"        — 4-digit AD years
 #
 # The 4-digit constraint on modern form is what stops the regex from
-# accidentally capturing "14" (day) or "7" (month) as the year.
+# accidentally capturing "14" (day) or "7" (month) as the year, which
+# would happen on dates that survived markup-stripping in awkward forms.
+# Various dash variants are accepted (-, en-dash, em-dash, "to", "ndash").
 LIFESPAN_ANCIENT_RE = re.compile(
-    r"([A-Z][\w]+(?:\s+[A-Z][\w]+){0,3})"
-    r"\s*\([^)]{0,150}?"
-    r"\b(\d{1,4})\s*(BC|AD)\s*[^)]{0,10}?"
-    r"(?:[-–—]|to|ndash)\s*[^)]{0,30}?"
-    r"\b(\d{1,4})\s*(BC|AD)\s*"
+    r"([A-Z][\w]+(?:\s+[A-Z][\w]+){0,3})"   # Name: 1-4 capitalised words
+    r"\s*\([^)]{0,150}?"                     # opening paren + up to 150 chars
+    r"\b(\d{1,4})\s*(BC|AD)\s*[^)]{0,10}?"   # birth year + era
+    r"(?:[-–—]|to|ndash)\s*[^)]{0,30}?"      # dash-of-some-kind, optionally surrounded
+    r"\b(\d{1,4})\s*(BC|AD)\s*"              # death year + era
     r"\)"
 )
 LIFESPAN_MODERN_RE = re.compile(
     r"([A-Z][\w]+(?:\s+[A-Z][\w]+){0,3})"
     r"\s*\([^)]{0,150}?"
-    r"\b(\d{4})\b\s*[^)]{0,10}?"                              # 4-digit birth year
+    r"\b(\d{4})\b\s*[^)]{0,10}?"             # 4-digit birth year
     r"(?:[-–—]|to|ndash)\s*[^)]{0,30}?"
-    r"\b(\d{4})\b"                                             # 4-digit death year
+    r"\b(\d{4})\b"                            # 4-digit death year
     r"\s*[^)]{0,5}?\)"
 )
 
@@ -303,24 +330,36 @@ def extract_facts_from_sentence(
       3. Pronoun resolution: if no entity left of anchor, the subject
          is implicitly the article title (this is the most aggressive
          heuristic — works well for biographies).
+
+    The "article-subject bias" below is the single biggest accuracy
+    win on biographical corpora: most sentences in an article about X
+    are about X, so falling back to the article title beats picking
+    the nearest noun phrase when the explicit subject is missing or
+    ambiguous.
     """
     triples = []
     spans = find_entity_spans(text)
-    # Build position lookup.
+    # Sort by start offset so the "nearest entity" helpers below can
+    # scan linearly and bail out early.
     spans_by_pos = sorted(spans, key=lambda s: s[0])
 
     def entity_left_of(pos: int) -> tuple[str, int] | None:
-        # Return the entity-span ending immediately before `pos`.
+        """Return (entity, char-distance) for the span ending closest
+        to but before `pos`. None if no such span exists."""
         best = None
         for s in spans_by_pos:
             if s[1] <= pos:
+                # Closer to `pos` = better; update on every later match.
                 if best is None or s[1] > best[1]:
                     best = s
             else:
+                # Sorted by start, so further spans only get worse.
                 break
         return (best[2], pos - best[1]) if best else None
 
     def entity_right_of(pos: int) -> tuple[str, int] | None:
+        """Return (entity, char-distance) for the first span starting
+        at or after `pos`."""
         for s in spans_by_pos:
             if s[0] >= pos:
                 return (s[2], s[0] - pos)

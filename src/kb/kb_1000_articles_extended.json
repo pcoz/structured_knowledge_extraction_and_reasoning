@@ -41117,6 +41117,342 @@
       "object": "Implementation",
       "source_article": "(derived)",
       "source_sentence_idx": -1
+    },
+    {
+      "subject": "Aristotle",
+      "relation": "INFLUENCED_BY",
+      "object": "Plato",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Arthur Schopenhauer",
+      "relation": "INFLUENCED_BY",
+      "object": "University of GÃ",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Anthony Eden",
+      "relation": "INFLUENCED_BY",
+      "object": "Eton",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Channel",
+      "relation": "INFLUENCED_BY",
+      "object": "Marine Biological Association",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Albert of Mainz",
+      "relation": "INFLUENCED_BY",
+      "object": "Frankfurt",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Apuleius",
+      "relation": "INFLUENCED_BY",
+      "object": "Carthage",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Atle Selberg",
+      "relation": "INFLUENCED_BY",
+      "object": "University of Oslo",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Plato",
+      "relation": "INFLUENCED_BY",
+      "object": "Socrates",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Aristotle",
+      "relation": "INFLUENCED_BY",
+      "object": "Socrates",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Peleus",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Zeus",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Leonard Huxley",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Heinrich Floris Schopenhauer",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "King Philip II of Macedon",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Elie Allegret",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Broglie Eure",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Dennis Strong",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Mauryan",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Brahmin",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Brahmin Ashoka",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Titus Aurelius Fulvus",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Day Dagr",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Innstein Innsteinn",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Sultan Ibrahim I",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "King Atreus of Mycenae",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Archidamus II",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Bertold IV",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Bertold IV d Agnes of Meran",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Marcus Vipsanius Agrippa",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Germanicus",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Zaman Khan",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Aeacus",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Neoptolemus",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Julia Maesa",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Manuel I Comnenus",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Sadyattes",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Henry of Burgundy Count of Portugal",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Count of Barcelona",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Isabella II of Spain",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Girolamo Amati",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Michael IX Palaeologus",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Abu Bakr of Mecca",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Asser Rig of Fjenneslev Zealand",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Cepheus",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "William Carnegie",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Hellen",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Philip II",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
+    },
+    {
+      "subject": "Olympias",
+      "relation": "IS_A",
+      "object": "FAMILY_PROGENITOR",
+      "source_article": "(derived)",
+      "source_sentence_idx": -1
     }
   ]
 }
