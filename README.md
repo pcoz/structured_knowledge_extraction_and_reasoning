@@ -45,9 +45,15 @@ The result is a system that:
   query takes under a millisecond.
 - **Can reason, not just retrieve.** It chains facts across
   documents to answer questions whose answers no single document
-  contains — transitive lineages, multi-relation aliasing, and
-  closed-world "what's missing?" queries — each derived fact
-  carrying a complete proof trail.
+  contains — transitive lineages, multi-relation aliasing,
+  closed-world "what's missing?" queries, time-aware "when did this
+  hold?" queries — each derived fact carrying a complete proof
+  trail.
+- **Knows what it doesn't know.** Facts can carry validity windows
+  and confidence scores. Sources can be ranked by authority. When
+  sources contradict, a pluggable resolution policy (latest-wins,
+  highest-confidence, authority-wins, or surface-for-review)
+  decides what to do — deterministically, at construction time.
 
 ## Who this is for
 
@@ -58,10 +64,13 @@ The result is a system that:
 | Field the same questions over and over in support | Answers come from your knowledge base, not a model's training data |
 | Want a brand-safe conversational assistant | The assistant can only say things that exist in the corpus you curated |
 | Worry about hallucination, data leakage, or AI cost at scale | None of those apply at query time, because there is no AI at query time |
+| Need to reconcile facts from many sources — internal wikis, regulatory filings, vendor docs, legacy databases | The distillation pipeline detects contradictions, weighs sources by authority, corroborates multi-source agreement, and produces one clean canonical artifact |
+| Need an audit trail of facts that change over time — policies, regulations, product specs, employment records, drug labels | Triples carry validity windows; "what was true on date X" is a deterministic query |
+| Need to flag uncertain or disputed information rather than pretend it's settled | Confidence scores propagate through reasoning chains; disputed facts surface with their conflict signature attached |
 
 ## What's in the repository
 
-Three working demonstrations, each runnable in a few seconds without
+Four working demonstrations, each runnable in a few seconds without
 any setup, API keys, or external dependencies:
 
 ### A Wikipedia knowledge graph
@@ -97,21 +106,41 @@ answers from the manual. A miniature of how a real product would
 serve customer or internal support: feed it the manual, get an
 assistant that answers from it and nothing else.
 
-### Same reasoning engine, three different data shapes
+### A knowledge-distillation pipeline
+
+A deliberately-noisy astronomical-facts corpus (the same physical
+data described by seven sources of varying authority: IAU,
+NASA, peer-reviewed papers, a 1985 Britannica, a 1965 encyclopedia,
+a blog post, and a textbook) is purified end-to-end. The pipeline
+detects 28 functional-property conflicts (different masses, different
+classifications), resolves them by a chain of policies (authority,
+then recency, then confidence), boosts confidence on facts
+corroborated by multiple independent sources, prunes low-authority
+noise, and produces one clean canonical KB with every change
+auditable. Handles the famous edge case correctly: Pluto's two
+classifications (Planet before 2006-08-24, Dwarf Planet from
+2006-08-24) are temporally disjoint and so NOT flagged as a conflict
+— both survive as valid facts of different eras.
+
+### Same reasoning engine, four different data shapes
 
 Each demo above ships with a companion reasoning script
-(`src/kb/reason.py`, `src/ahab/reason.py`, `src/git_rag/reason.py`)
-that runs the same engine — fixpoint iteration, disjunctive rules,
-and stratified negation-as-failure — over its corpus. The Wikipedia
-KB derives intellectual-descent chains, family progenitors, and
-historical contemporaries. The Moby-Dick corpus derives theme
-co-occurrence networks, speech-act classifications, and the set of
-characters Ahab never speaks confrontationally to. The Git knowledge
-base derives multi-hop topic navigation, an operator-attention flag,
-and an automation-safety classifier.
+(`src/kb/reason.py`, `src/ahab/reason.py`, `src/git_rag/reason.py`,
+`src/distill/purify.py`) that runs the same engine — fixpoint
+iteration, OWL-style declarative axioms, disjunctive rules,
+stratified negation-as-failure, temporal validity intervals,
+confidence propagation, and conflict-resolution policies — over its
+corpus. The Wikipedia KB derives intellectual-descent chains, family
+progenitors, and historical contemporaries; resolves real conflicts
+in the source data using a chain policy. The Moby-Dick corpus derives
+theme co-occurrence networks with frequency-weighted confidence
+attenuating through long transitive chains. The Git knowledge base
+derives multi-hop topic navigation declaratively and classifies
+operations by automation safety. The distillation pipeline
+demonstrates the full purification sweep: noisy in, canonical out.
 
 The point: structured reasoning is domain-agnostic. The same code
-paths drive all three; what differs is how each domain projects its
+paths drive all four; what differs is how each domain projects its
 records into the standard triple form.
 
 ## How it works, in plain language
