@@ -18,9 +18,7 @@ query time.
 > **Repository:** *SKEAR* is the project's short name. The repository
 > slug stays `structured_knowledge_extraction_and_reasoning` — the
 > long form is search-discoverable and the existing clone URL,
-> forks, and issue links keep working. Same pattern as
-> `kubernetes/kubernetes` → "k8s": the URL is one thing, the brand
-> is another.
+> forks, and issue links keep working.
 
 ## The problem with today's AI answers
 
