@@ -180,19 +180,36 @@ here in specific ways. Definitions:
 
 ### Inference / reasoning terms
 
-- **Horn clause** — the form of inference rule used here. `IF
-  antecedents THEN consequent` where antecedents are existing
-  triples and consequent is a new triple. The reasoning engine
-  doesn't currently handle disjunction or negation; Horn-only.
+- **Horn clause** — the basic shape of an inference rule here:
+  `IF antecedents THEN consequent` where antecedents are existing
+  triples and consequent is a new triple. The engine also supports
+  declarative disjunction (`DisjunctiveRule` — alternative antecedent
+  relations, one consequent) and stratified negation-as-failure
+  (rules at stratum ≥ 1 that test absence via `kb_has`). What it
+  does NOT do: full FOL theorem proving, description-logic
+  subsumption, or unstratified negation.
 
 - **Derivation** — a derived fact + the rule that derived it + the
   input triples it derived from + a human-readable
   "since...therefore..." explanation.
 
 - **Fixpoint** — when no rule produces new facts on a fresh pass,
-  the rule application has reached fixpoint. The current engine
-  runs a single pass plus one re-application to catch
-  derived-on-derived chains.
+  the rule application has reached fixpoint. The engine iterates
+  stratum-0 (monotonic Horn) rules until convergence, so a rule
+  whose antecedents include another rule's consequent (e.g.,
+  transitive closure of `INTELLECTUAL_DESCENDANT_OF`) keeps firing
+  across rounds until the closure is complete.
+
+- **Stratified negation** — negation-as-failure rules live in
+  stratum 1 and run once after stratum-0 has converged. Stratified
+  semantics keeps the result deterministic despite negation being
+  non-monotonic; it's the standard discipline from stratified
+  Datalog. Sound only under the closed-world assumption.
+
+- **Disjunctive rule** — declarative shape where multiple
+  alternative antecedent patterns map to one consequent. Lets a
+  rule's structure stay inspectable (one named record with a
+  relation list) instead of being hidden inside Python branches.
 
 ### Construction / serving terms
 
@@ -265,13 +282,35 @@ On KB load (`src/kb/query.py:KB.load`):
 2. Adjacency indexes are built: `out_edges[subject]`,
    `in_edges[object]`, `by_relation[relation]`.
 
-On reasoning (`src/kb/reason.py:apply_all_rules`):
+On reasoning (`src/kb/reason.py:apply_all_rules_to_fixpoint`):
 
-1. Each rule iterates over the KB's triples (or specific relation
-   subsets) and emits `Derivation` objects.
-2. New derivations are added to the KB; transitive rules can fire
-   on derived facts in a second pass.
-3. The extended KB is serialised to its own JSON file.
+1. Rules are grouped by `stratum`. Stratum 0 holds monotonic Horn
+   rules (the default). Stratum 1+ holds rules that test absence
+   via `kb_has` — negation-as-failure.
+2. Within each stratum, rules iterate to fixpoint: each round runs
+   every rule against the current KB; any new facts are folded in;
+   iteration stops when no rule produces a new fact. A divergence
+   guard raises `RuntimeError` if a stratum fails to converge in
+   `max_iter` rounds.
+3. Strata are processed in ascending order. A stratum-1 rule sees
+   the converged stratum-0 closure but not its own peers'
+   in-progress derivations — that's what makes the result
+   deterministic despite negation being non-monotonic.
+4. The extended KB is serialised to its own JSON file. Each
+   derivation carries its rule name, input triples, and a
+   "since X therefore Y" explanation for "why?" queries.
+
+Three rule shapes are supported:
+
+- **`Rule`** — wraps a Python function `KB → list[Derivation]`. The
+  general form; can express any antecedent pattern including
+  negation-as-failure when placed at stratum ≥ 1.
+- **`DisjunctiveRule`** — declarative form for the
+  "alternative-antecedent-relations" case (one consequent reachable
+  via several relation names). Compiles to a `Rule`.
+- Function-form disjunction over object values is expressed as a
+  plain `Rule` whose body checks `t.object in {…}` — natural
+  Python idiom, no extra abstraction needed.
 
 ---
 
@@ -596,11 +635,18 @@ and what the runtime serves.
 
 Three demos in this repo cover three source-text types:
 
-| domain | source text | demo |
-|---|---|---|
-| Encyclopedic | Wikipedia article dump | `src/kb/` |
-| Fictional / conversational | Moby-Dick (Ahab's quotes) | `src/ahab/` |
-| Software documentation | Git manual | `src/git_rag/` |
+| domain | source text | query/serve | structured reasoner |
+|---|---|---|---|
+| Encyclopedic | Wikipedia article dump | `src/kb/query.py` | `src/kb/reason.py` |
+| Fictional / conversational | Moby-Dick (Ahab's quotes) | `src/ahab/talk.py` | `src/ahab/reason.py` |
+| Software documentation | Git manual | `src/git_rag/query.py` | `src/git_rag/reason.py` |
+
+The same reasoning engine drives all three reasoners — only the
+projection from domain records into Triple form differs.
+`src/ahab/reason.py` derives theme co-occurrence networks and
+classifies utterances by speech-act and mood. `src/git_rag/reason.py`
+derives transitive topic-navigation and an automation-safety flag.
+Both reuse the engine in `src/kb/reason.py` unchanged.
 
 To add a new domain (e.g., medical guidelines, legal codes,
 scientific literature):
@@ -612,6 +658,12 @@ scientific literature):
    tags / metadata.
 3. Write a query/serve script that does theme/topic matching and
    rendering with provenance.
+4. *(Optional)* Write a `reason.py` that projects records into the
+   Triple form, declares domain-specific rules (Horn /
+   `DisjunctiveRule` / negation-as-failure), and calls
+   `apply_all_rules_to_fixpoint`. See `src/ahab/reason.py` and
+   `src/git_rag/reason.py` for working templates.
 
 The architecture is domain-agnostic. Each domain just needs its own
-corpus (or its own extractor + AI-extraction prompt).
+corpus (or its own extractor + AI-extraction prompt) and optionally
+its own rule set.

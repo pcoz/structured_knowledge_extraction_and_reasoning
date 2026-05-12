@@ -35,12 +35,16 @@ src/
 │   │                     KEY FUNCS: KB.load, KB.out_facts, KB.in_facts,
 │   │                                KB.find_paths, KB.chain_query
 │   │
-│   ├── reason.py         Horn-clause inference; derive new facts with provenance
-│   │                     KEY CLASSES: Derivation
-│   │                     KEY FUNCS: apply_all_rules, individual r1..r7 rules
+│   ├── reason.py         Inference engine: fixpoint over Horn rules,
+│   │                     declarative disjunctive rules, stratified
+│   │                     negation-as-failure. Bundled stress-test suite.
+│   │                     KEY CLASSES: Rule, DisjunctiveRule, Derivation
+│   │                     KEY FUNCS: apply_all_rules_to_fixpoint,
+│   │                                kb_has, stress_test,
+│   │                                individual r1..r11 rules
 │   │
 │   ├── kb_1000_articles.json           pre-built base KB (2,169 triples)
-│   └── kb_1000_articles_extended.json  base + 3,469 derived facts
+│   └── kb_1000_articles_extended.json  base + derived facts
 │
 ├── ahab/                 conversational demo over Moby-Dick
 │   ├── utterances.py     35 curated Ahab quotes with metadata
@@ -48,9 +52,15 @@ src/
 │   │                                addressee, mood, speech_act)
 │   │                     KEY DATA: AHAB_UTTERANCES list
 │   │
-│   └── talk.py           theme-extraction + scoring + rendering
-│                         KEY FUNCS: extract_themes, score_utterance,
-│                                    best_utterance, respond
+│   ├── talk.py           theme-extraction + scoring + rendering
+│   │                     KEY FUNCS: extract_themes, score_utterance,
+│   │                                best_utterance, respond
+│   │
+│   └── reason.py         apply the kb.reason engine to the utterance
+│                         corpus: theme co-occurrence + transitive
+│                         closure, disjunctive speech-label,
+│                         confrontational/introspective classification,
+│                         peaceful-addressee (negation over derived)
 │
 └── git_rag/              enterprise RAG demo over Git docs
     ├── knowledge.py      37 structured Git knowledge items
@@ -60,9 +70,15 @@ src/
     │                                source, related_items)
     │                     KEY DATA: GIT_KB list
     │
-    └── query.py          intent + topic detection, scoring, rendering
-                          KEY FUNCS: detect_intent, detect_topics,
-                                     score_item, query, format_answer
+    ├── query.py          intent + topic detection, scoring, rendering
+    │                     KEY FUNCS: detect_intent, detect_topics,
+    │                                score_item, query, format_answer
+    │
+    └── reason.py         apply the kb.reason engine to the Git docs:
+                          transitive RELATED_TO closure,
+                          NEEDS_OPERATOR_ATTENTION (disjunctive over
+                          HAS_CAUTION ∪ USES_DESTRUCTIVE_COMMAND),
+                          SAFE_TO_AUTOMATE (negation over derived)
 ```
 
 ---
@@ -238,10 +254,10 @@ needs no changes.
 ### Add a new inference rule
 
 In `src/kb/reason.py`, define a function returning a list of
-`Derivation`s, then register it:
+`Derivation`s, then register it as a `Rule`:
 
 ```python
-def r8_authored_in_genre(kb: KB) -> list[Derivation]:
+def r_authored_in_genre(kb: KB) -> list[Derivation]:
     """X WROTE Y, Y IN_GENRE Z → X WROTE_IN_GENRE Z"""
     out = []
     for t1 in kb.triples:
@@ -257,14 +273,59 @@ def r8_authored_in_genre(kb: KB) -> list[Derivation]:
                 f"is in genre {t2.object}, therefore {t1.subject} wrote "
                 f"in the {t2.object} genre."
             )
-            out.append(Derivation("r8_authored_in_genre", derived,
+            out.append(Derivation("r_authored_in_genre", derived,
                                    [t1, t2], expl))
     return out
 
-RULES.append(("r8_authored_in_genre", r8_authored_in_genre))
+RULES.append(Rule("r_authored_in_genre", r_authored_in_genre))
 ```
 
 The rule is picked up automatically on next `apply_all_rules(kb)`.
+
+### Add a disjunctive rule
+
+When several different relations should all produce the same
+consequent, register a `DisjunctiveRule` instead of writing the
+alternatives as Python branches — the structure stays inspectable:
+
+```python
+LEARNED_FROM = DisjunctiveRule(
+    name="learned_from",
+    alternatives=["TUTORED_BY", "INTELLECTUAL_DESCENDANT_OF",
+                  "STUDIED_UNDER"],
+    consequent="LEARNED_FROM",
+    explanation_template=(
+        "Since {subject} stands in relation {via} to {object}, "
+        "therefore {subject} learned from {object}."
+    ),
+)
+RULES.append(LEARNED_FROM.to_rule())
+```
+
+### Add a negation-as-failure rule
+
+Set `stratum=1` so the rule runs once on the converged positive
+closure (stratified semantics). Use `kb_has(kb, subject, relation)`
+to test for absence:
+
+```python
+def r_orphan(kb: KB) -> list[Derivation]:
+    """X is born, but the KB records no parent for X → X IS_A ORPHAN.
+    Closed-world: only sound when the KB has all known parents."""
+    out = []
+    for t in kb.triples:
+        if t.relation != "BORN_DATE":
+            continue
+        if kb_has(kb, t.subject, "CHILD_OF"):
+            continue
+        derived = Triple(t.subject, "IS_A", "ORPHAN_OF_RECORD",
+                         "(derived)", -1)
+        out.append(Derivation("r_orphan", derived, [t],
+                               f"{t.subject} has no recorded parent."))
+    return out
+
+RULES.append(Rule("r_orphan", r_orphan, stratum=1))
+```
 
 ### Add a new conversational character (Ahab-style)
 
@@ -593,26 +654,31 @@ better-quality KB serving free, deterministic queries forever.
 
 ## Testing approach
 
-There are no unit tests in this repo by design — the demos ARE the
-test suite. Each demo script:
-
-- Loads its corpus
-- Runs a scripted set of queries
-- Prints the results in a verifiable form (with provenance)
+The demos ARE the human-inspectable test suite — each loads its
+corpus, runs scripted queries, and prints results with provenance.
+`src/kb/reason.py` additionally bundles an assertion-backed
+stress-test suite that runs after the main demo.
 
 To verify behaviour after a change:
 
 ```bash
 python src/kb/query.py                 # entity cards + multi-hop chains
-python src/kb/reason.py                # rule derivations + compound queries
+python src/kb/reason.py                # rule derivations + 10 stress tests
 python src/ahab/talk.py                # 13 Q&A turns; chapter citations
+python src/ahab/reason.py              # structured reasoning over utterances
 python src/git_rag/query.py            # 15 Git Q&A; manual-section sources
+python src/git_rag/reason.py           # structured reasoning over Git docs
 ```
 
-Each output is human-inspectable. If a Q gets the wrong A, the bug
-is visible in seconds.
+`stress_test()` inside `src/kb/reason.py` pins ten engine
+properties with `assert` statements: deep-chain transitive closure,
+disjunctive-rule firing across alternatives, stratified negation,
+cycle convergence, empty-KB safety, alias canonicalisation, ordering
+invariance, run-to-run determinism, divergence detection, and
+arbitrary-stratum dispatch. If any of those fail, the script exits
+non-zero — that's the regression signal.
 
-For automated regression: pipe the demos' output to files and diff
+For automated regression on the demo output: pipe to files and diff
 against a known-good baseline.
 
 ---

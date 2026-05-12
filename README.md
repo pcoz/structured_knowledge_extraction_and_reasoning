@@ -43,9 +43,11 @@ The result is a system that:
 - **Gives the same answer every time.** Deterministic and auditable.
 - **Runs cheaply at query time.** No API calls, no GPU bills — a
   query takes under a millisecond.
-- **Can reason, not just retrieve.** It can connect facts across
+- **Can reason, not just retrieve.** It chains facts across
   documents to answer questions whose answers no single document
-  contains.
+  contains — transitive lineages, multi-relation aliasing, and
+  closed-world "what's missing?" queries — each derived fact
+  carrying a complete proof trail.
 
 ## Who this is for
 
@@ -75,7 +77,11 @@ and 2,561 entities. You can ask it questions like:
 
 It can also **infer new facts** from existing ones — for example,
 deducing that Socrates is an intellectual ancestor of Alexander even
-though no single article says so directly.
+though no single article says so directly. The reasoner runs eleven
+rules to fixpoint (transitive closure, disjunctive antecedents, and
+stratified absence-checks), turning 2,169 base facts into 5,684 —
+each derived fact tagged with the rule, inputs, and "since X
+therefore Y" explanation that produced it.
 
 ### A conversational demo (Captain Ahab)
 
@@ -91,6 +97,23 @@ answers from the manual. A miniature of how a real product would
 serve customer or internal support: feed it the manual, get an
 assistant that answers from it and nothing else.
 
+### Same reasoning engine, three different data shapes
+
+Each demo above ships with a companion reasoning script
+(`src/kb/reason.py`, `src/ahab/reason.py`, `src/git_rag/reason.py`)
+that runs the same engine — fixpoint iteration, disjunctive rules,
+and stratified negation-as-failure — over its corpus. The Wikipedia
+KB derives intellectual-descent chains, family progenitors, and
+historical contemporaries. The Moby-Dick corpus derives theme
+co-occurrence networks, speech-act classifications, and the set of
+characters Ahab never speaks confrontationally to. The Git knowledge
+base derives multi-hop topic navigation, an operator-attention flag,
+and an automation-safety classifier.
+
+The point: structured reasoning is domain-agnostic. The same code
+paths drive all three; what differs is how each domain projects its
+records into the standard triple form.
+
 ## How it works, in plain language
 
 Three layers, built once and then reused at query time:
@@ -101,9 +124,13 @@ Three layers, built once and then reused at query time:
    when, where, to whom*. This is the one place AI is used.
 
 2. **Apply your business rules.** Combine extracted facts using
-   logical rules — for example, *"if A trained B and B trained C,
-   then A is an intellectual ancestor of C"*. The system derives new
-   facts automatically, each tagged with the rule and inputs that
+   logical rules of three kinds: simple chains (*"if A trained B and
+   B trained C, then A is an intellectual ancestor of C"*), rules
+   with alternative triggers (*"X influenced Y if X taught Y OR Y is
+   X's intellectual descendant"*), and rules that fire on what's
+   missing (*"flag any parent with no recorded parent of their own"*).
+   The system applies these rules until no new facts can be derived,
+   each derived fact tagged with the rule, inputs, and reasoning that
    produced it.
 
 3. **Serve answers.** Queries run against the structured knowledge.

@@ -110,7 +110,8 @@ cost ~0 bits because the decoder can derive them.
 **What's new here**:
 - **Operational implementation of state-update as a compression
   mechanism**. Empirically reduces explicit fact count by ~60%
-  (3,469 facts derived from 2,169 base facts in the demo KB).
+  (3,515 facts derived from 2,169 base facts in the demo KB by
+  Horn + disjunctive + stratified-negation rules run to fixpoint).
 - **State predictor instead of byte predictor**. A small auxiliary
   model predicts SELECTORS (which phrase / dictionary to sample
   from) given the running state. Much narrower and more learnable
@@ -140,7 +141,8 @@ generation, and compression — all grounded with per-fact provenance.
   - Extracts the graph (AI-driven at construction time)
   - Stores it persistently (~465 KB JSON for 1000 articles)
   - Supports lookups (graph traversal, sub-ms)
-  - Supports inference (8 rule types deriving thousands of facts)
+  - Supports inference (11 rules — Horn, disjunctive, and stratified
+    negation-as-failure — run to fixpoint, deriving thousands of facts)
   - Supports text generation (deterministic, no LLM at serve time)
   - Maintains provenance everywhere (rule → inputs → source text)
   - Is itself compression-grade (structured form is ~5-10× smaller
@@ -183,9 +185,9 @@ architecture provides.
 |---|---|---|
 | Cell-grammar shape × context × flavour | 8/8 byte-exact across 2 contexts | scaling to ~20 contexts × ~50 flavours |
 | Interaction-type compact selectors | 8 sentences, ~5% bit-cost reduction | corpus-scale empirical distributions; arithmetic coder integration |
-| Causal state tracking | 8 inference rules over 1000-article KB | richer rule library; iterative fixpoint at scale |
+| Causal state tracking | 11 rules over 1000-article KB; fixpoint dispatch with stratified negation-as-failure and disjunctive rules; 10 stress-test scenarios | richer rule library; semi-naive evaluation for scale |
 | Bidirectional byte-exact | 17/17 phenocryst sentences + 25/25 full article | groundmass byte-exactness via trained LM |
-| Provenance + reasoning + generation | 4 working query interfaces | production-grade extraction at 100M-article scale |
+| Provenance + reasoning + generation | 6 working interfaces (3 query + 3 cross-domain reasoners over Wikipedia, Moby-Dick, Git docs) | production-grade extraction at 100M-article scale |
 
 The architecture is concrete and implementable at small scale. The
 production-scale validation requires AI-driven extraction at 100M+
