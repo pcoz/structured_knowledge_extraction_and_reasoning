@@ -323,14 +323,83 @@ serve-time split.** The architectures aren't converging — they're
 occupying different positions in the same design space, and what's
 narrowed is the gap on the dimensions where they overlap.
 
-**Could be combined**: this project's KB could be exported as OWL
-for use with formal reasoners. OWL inference (description-logic
-subsumption, transitive/symmetric/inverse-property axioms beyond
-what our DSL already covers, cardinality restrictions) could augment
-the Horn + disjunctive + stratified-negation rules already in
-`src/kb/reason.py`. CYC-style microtheories could be added as a
-context slot on the Triple schema — that's a separable extension
-the current architecture would accept cleanly.
+### Could be combined
+
+Two concrete integration patterns make the abstract "could be
+combined" claim real.
+
+**Pattern A — CYC as construction-time enricher (most natural).**
+Use CYC's curated knowledge to enrich our extracted facts at
+construction time, then ship the combined artifact.
+
+```
+   Our extraction → list[Triple] ──┐
+                                   ├──→ enriched KB → ship
+   CYC common-sense lookup ────────┘
+```
+
+Concretely:
+
+1. Run extraction on the source corpus → produce our Triples
+   (subject, relation, object, source, confidence, validity).
+2. For each entity in the KB, query CYC for common-sense facts
+   about it: "what kind of thing is Aristotle?" →
+   `(Aristotle, IS_A, Philosopher)`, `(Philosopher, IS_A, Person)`,
+   `(Person, REQUIRES, Food)`, etc.
+3. Adapt those CYC assertions into our Triple shape — CYC's
+   `(#$isa #$Aristotle #$Philosopher)` becomes
+   `Triple("Aristotle", "IS_A", "Philosopher", "(CYC)", -1, confidence=0.95)`.
+4. Merge into the KB. The conflict module picks up any
+   contradictions between extraction-time facts and CYC's; the chain
+   policy decides who wins.
+5. Ship the merged KB. Runtime is unchanged — CYC is gone after
+   construction.
+
+This is genuinely useful: CYC contributes the common-sense backdrop
+our extractor can't extract (because the source text doesn't say
+it). The runtime artifact is still pure JSON, the serving path is
+still pure stdlib, and the architectural promise (no AI/external
+at serve time) holds.
+
+**Pattern B — Our KB as ABox for a CYC microtheory.** Treat CYC as
+the TBox (schema + common-sense axioms + microtheories) and our
+extracted KB as the ABox (specific instances). Run CYC's inference
+engine over the union; pull derived facts back into our format with
+provenance attributed to the CYC microtheory. Gets us defeasible
+reasoning, modal logic, and microtheory-scoped facts — features the
+current engine doesn't have. Construction-time only; runtime is still
+unchanged.
+
+**Cheaper sibling pattern — OWL DL reasoner instead of CYC.**
+Pattern A also works against a free DL reasoner (HermiT, Pellet,
+FaCT++ via `owlready2`), gaining description-logic subsumption,
+cardinality restrictions, and complex class expressions beyond what
+our compile-to-rules OWL DSL already covers. This is the planned
+`src/kb/ontology_owl.py` extension — same architectural shape as
+Pattern A, no CYC licensing dependency, narrower capability
+augmentation.
+
+**Future direction — microtheories on the Triple schema.** CYC-style
+contexts could be added as a `context` slot on the Triple schema,
+parallel to the existing `valid_from` / `valid_to` temporal slots.
+Rules become context-aware (only fire on facts in the active
+context or its parents); the conflict detector becomes context-
+scoped ("Santa exists" in `ChristmasStoryMt` doesn't conflict with
+"Santa doesn't exist" in `EmpiricalMt`). The current engine accepts
+this extension cleanly — it's the same architectural pattern as the
+temporal slot, just along a different axis.
+
+### Bottom line on combining
+
+The architectural openness is real — we CAN combine with CYC or any
+DL reasoner via clean entry points (CYC-derived Triples in, derived
+facts out, optional context slot on the schema). The practical
+question is whether the use case justifies the licensing and
+integration cost. For most workloads the simpler path is the planned
+OWL adapter against a free DL reasoner (HermiT / Pellet); CYC
+integration would be the right call only when its specific strengths
+(common-sense knowledge, defeasibility, microtheories) are load-
+bearing for your application.
 
 ---
 
