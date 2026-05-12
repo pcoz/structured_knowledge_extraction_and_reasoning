@@ -30,7 +30,7 @@ import json
 import re
 import sys
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable
 
@@ -494,7 +494,12 @@ def apply_all_rules(kb: KB) -> tuple[KB, list[Derivation]]:
 
 
 def apply_all_rules_to_fixpoint(
-    kb: KB, rules: list[Rule] | None = None, max_iter: int = 20,
+    kb: KB,
+    rules: list[Rule] | None = None,
+    max_iter: int = 20,
+    propagate_confidence: bool = True,
+    propagate_temporal: bool = True,
+    confidence_mode: str = "product",
 ) -> tuple[KB, list[Derivation], dict]:
     """Iterate rules to fixpoint, stratum by stratum, in ascending order.
 
@@ -531,6 +536,59 @@ def apply_all_rules_to_fixpoint(
     for r in rules:
         by_stratum[r.stratum].append(r)
 
+    # Optional propagation helpers. Lazy imports so that confidence/
+    # temporal modules are only loaded when their feature is in use —
+    # callers that disable both pay no import cost.
+    _derive_conf = None
+    _interval_of = None
+    _intersection = None
+    _is_empty = None
+    if propagate_confidence:
+        from kb.confidence import derive_confidence as _derive_conf
+    if propagate_temporal:
+        from kb.temporal import (
+            interval_of as _interval_of,
+            intersection_of_inputs,
+            is_empty as _is_empty,
+        )
+        _intersection = intersection_of_inputs
+
+    def _augment(d: Derivation) -> Derivation | None:
+        """Apply confidence and temporal propagation to a fresh
+        derivation. Returns None if the inputs are temporally
+        inconsistent (interval intersection empty) — caller should
+        drop the derivation in that case."""
+        if not d.inputs:
+            return d
+        new_output = d.output
+        if propagate_confidence and _derive_conf is not None:
+            derived_conf = _derive_conf(
+                [t.confidence for t in d.inputs],
+                mode=confidence_mode,
+            )
+            # Only narrow confidence — never widen above what a
+            # rule explicitly emitted.
+            if derived_conf < new_output.confidence:
+                new_output = replace(new_output, confidence=derived_conf)
+        if propagate_temporal and _intersection is not None:
+            iv = _intersection(d.inputs)
+            if _is_empty(iv):
+                # Temporally inconsistent inputs — the rule's output
+                # would be valid over an empty interval, i.e. never.
+                # Suppress the derivation entirely.
+                return None
+            # Narrow validity to the intersection IF the rule didn't
+            # explicitly set tighter bounds. If the rule's output
+            # already carries a temporal slot, respect it.
+            new_from = new_output.valid_from if new_output.valid_from else iv.valid_from
+            new_to = new_output.valid_to if new_output.valid_to else iv.valid_to
+            new_output = replace(
+                new_output, valid_from=new_from, valid_to=new_to,
+            )
+        if new_output is d.output:
+            return d
+        return Derivation(d.rule_name, new_output, d.inputs, d.explanation)
+
     # `seen` is the dedup set: every fact already in the KB plus every
     # fact derived so far. Lets us cheaply check "is this triple new?"
     # without scanning kb.triples on every derivation.
@@ -551,6 +609,14 @@ def apply_all_rules_to_fixpoint(
             round_derivs: list[Derivation] = []
             for r in stratum_rules:
                 for d in r.fn(current):
+                    # Augment the derivation with propagated
+                    # confidence + temporal validity (no-op if both
+                    # flags are off, or if inputs carry defaults).
+                    augmented = _augment(d)
+                    if augmented is None:
+                        # Inputs were temporally inconsistent.
+                        continue
+                    d = augmented
                     key = (d.output.subject, d.output.relation, d.output.object)
                     if key not in seen:
                         seen.add(key)
@@ -567,6 +633,7 @@ def apply_all_rules_to_fixpoint(
                 triples=current.triples + round_new,
                 alias_map=current.alias_map,
                 n_articles=current.n_articles,
+                source_authority=current.source_authority,
             )
         else:
             # `for…else` runs when the for-loop completes without
@@ -579,6 +646,10 @@ def apply_all_rules_to_fixpoint(
                 f"iterations — likely a rule producing unbounded new "
                 f"facts (check for missing self-loop / duplicate guards)."
             )
+    # Note: the inner-loop body already runs _augment via the
+    # `augmented = _augment(d)` call above, so stratum-1 rules
+    # (negation-as-failure) inherit the same propagation behaviour
+    # automatically — they share the same control flow.
 
     stats = {
         "per_stratum": dict(per_stratum),
@@ -589,6 +660,170 @@ def apply_all_rules_to_fixpoint(
         "stratum_1_count": sum(per_stratum.get(1, [])),
     }
     return current, all_derivations, stats
+
+
+def _extended_pipeline_demo(kb: KB) -> None:
+    """Run the same Wikipedia KB through the full extended pipeline:
+    OWL DSL ontology + confidence heuristic + conflict resolution.
+
+    Showcases all four new capabilities (OWL, temporal slot support,
+    confidence propagation, conflict policies) on real data. The
+    real BORN_DATE duplicates produced by the extractor become the
+    natural conflict-resolution material — entities like
+    "Alexander II" collapsing two distinct historical figures into
+    one canonical name are the classic functional-property violation."""
+    from dataclasses import replace as _replace
+    from kb.ontology import Ontology
+    from kb.conflict import (
+        apply_with_conflict_resolution, ChainPolicy,
+        HighestConfidencePolicy, SurfaceForReviewPolicy,
+    )
+
+    print("=" * 78)
+    print("EXTENDED PIPELINE: OWL DSL + confidence + conflict resolution")
+    print("=" * 78)
+    print()
+
+    # ---- 1. Biographical ontology --------------------------------
+    # The hand-rules above (R1..R11) cover much of this; declaring
+    # it here as OWL axioms shows the engine works either way and
+    # adds new declarations the hand-rules don't have (class
+    # hierarchy, functional properties for conflict detection,
+    # symmetric/inverse axioms for cleaner inference).
+    ont = (
+        Ontology("biographical")
+        .functional_property("BORN_DATE")
+        .functional_property("DIED_DATE")
+        .functional_property("BORN_IN")
+        .functional_property("DIED_IN")
+        .inverse_properties("TUTORED", "TUTORED_BY")
+        .symmetric_property("CONTEMPORARY_OF")
+        .symmetric_property("MARRIED")
+        .transitive_property("INTELLECTUAL_DESCENDANT_OF")
+        .subclass_of("Philosopher", "Person")
+        .subclass_of("Conqueror", "Person")
+        .subclass_of("Ruler", "Person")
+        .subclass_of("MULTI_CONQUEROR", "Conqueror")
+        .subclass_of("FAMILY_PROGENITOR", "Person")
+        .domain("CONQUERED", "Conqueror")
+        .range("CONQUERED", "Place")
+        .domain("FOUNDED", "Person")
+    )
+    print("ONTOLOGY")
+    print("-" * 78)
+    for line in ont.summary().split("\n"):
+        print(f"  {line}")
+    print()
+
+    # ---- 2. Confidence heuristic --------------------------------
+    # First-party rule: a fact extracted from the subject's own
+    # Wikipedia article is treated as high-confidence (1.0). A fact
+    # extracted from a different entity's article — typically a
+    # parenthetical or coreference-resolved mention — gets lower
+    # confidence (0.7). PATCH_FACTS are curated and sit at 0.95.
+    weighted_triples = []
+    for t in kb.triples:
+        if t.source_sentence_idx == -1:
+            conf = 0.95               # curated patch
+        elif t.source_article == t.subject or \
+                t.source_article == kb.canonicalize(t.subject):
+            conf = 1.0                # first-party assertion
+        else:
+            conf = 0.7                # third-party mention
+        weighted_triples.append(_replace(t, confidence=conf))
+
+    kb_weighted = KB(
+        triples=weighted_triples,
+        alias_map=kb.alias_map,
+        n_articles=kb.n_articles,
+    )
+
+    # ---- 3. Run with conflict resolution ------------------------
+    # Chain policy: prefer the higher-confidence triple; if tied,
+    # surface for human review. HighestConfidence will win most
+    # cases here because first-party articles produce confidence-1.0
+    # facts that beat third-party (0.7) ones.
+    resolved, all_derivations, conflicts, stats = \
+        apply_with_conflict_resolution(
+            kb_weighted,
+            rules=RULES,
+            ontology=ont,
+            policy=ChainPolicy([
+                HighestConfidencePolicy(),
+                SurfaceForReviewPolicy(),
+            ]),
+        )
+
+    print("PIPELINE STATS")
+    print("-" * 78)
+    print(f"  Stratum-0 iterations: {stats['stratum_0_iters']}")
+    print(f"  Per-iter new facts:   {stats['stratum_0_per_iter']}")
+    print(f"  Conflicts detected:   {stats['conflicts_detected']}")
+    print(f"  Triples dropped:      {stats['triples_dropped']}")
+    print(f"  Policy:               {stats['policy']}")
+    print(f"  Resolved KB size:     {len(resolved.triples):,}")
+    print()
+
+    # ---- 4. Report OWL-derived facts ----------------------------
+    owl_counts: dict[str, int] = defaultdict(int)
+    for d in all_derivations:
+        if d.rule_name.startswith(("owl:", "rdfs:")):
+            owl_counts[d.rule_name] += 1
+    if owl_counts:
+        print("OWL-DERIVED FACT COUNTS")
+        print("-" * 78)
+        for name, n in sorted(owl_counts.items()):
+            print(f"  {name:<48s} {n:>4d}")
+        print()
+
+    # ---- 5. Report conflicts resolved ---------------------------
+    if conflicts:
+        print("CONFLICTS DETECTED (showing up to 6)")
+        print("-" * 78)
+        # Group by kind for readability.
+        by_kind: dict[str, list] = defaultdict(list)
+        for c in conflicts:
+            by_kind[c.kind].append(c)
+        for kind, group in by_kind.items():
+            print(f"  [{kind}] {len(group)} total")
+        print()
+        for c in conflicts[:6]:
+            survivors = {(t.subject, t.relation, t.object)
+                         for t in resolved.triples}
+            print(f"  {c.kind}: {c.detail}")
+            for t in c.triples:
+                key = (t.subject, t.relation, t.object)
+                marker = "  ✓ kept   " if key in survivors else "    dropped"
+                print(f"    {marker} {t.subject!s:<25s} "
+                      f"{t.relation}={t.object!s:<15s} "
+                      f"conf={t.confidence:.2f}  "
+                      f"src='{t.source_article}'")
+        print()
+
+    # ---- 6. Spot-check: a single entity's resolved facts --------
+    spot = "Alexander II"
+    spot_facts = [t for t in resolved.triples if t.subject == spot
+                  and t.relation == "BORN_DATE"]
+    if spot_facts:
+        print(f"SPOT CHECK: {spot}'s BORN_DATE after resolution")
+        print("-" * 78)
+        for t in spot_facts:
+            print(f"  → {t.object} (conf={t.confidence:.2f}, "
+                  f"src='{t.source_article}')")
+        # Show what was dropped.
+        kept_keys = {(t.subject, t.relation, t.object) for t in resolved.triples}
+        dropped_for_spot = [
+            t for t in kb_weighted.triples
+            if t.subject == spot and t.relation == "BORN_DATE"
+            and (t.subject, t.relation, t.object) not in kept_keys
+        ]
+        for t in dropped_for_spot:
+            print(f"  ✗ dropped: {t.object} (conf={t.confidence:.2f}, "
+                  f"src='{t.source_article}')")
+        print()
+
+    print("=" * 78)
+    print()
 
 
 def main() -> None:
@@ -772,6 +1007,25 @@ def main() -> None:
         json.dump(payload, f, ensure_ascii=False, indent=2)
     print(f"\n  Extended KB saved to: {out_path.name}")
     print()
+
+    # ------------------------------------------------------------------
+    # Extended pipeline: OWL DSL + confidence + conflict resolution.
+    #
+    # The hand-written R1..R11 above are powerful but ad-hoc. This
+    # section re-runs the same KB through the full extended pipeline:
+    #   1. A biographical OWL ontology declares property characteristics
+    #      and class hierarchy declaratively (most of the same shape
+    #      R1..R11 cover by hand, plus new axioms hand-rules don't).
+    #   2. A confidence heuristic flags facts coming from someone
+    #      else's article as less trustworthy than facts from the
+    #      entity's own article — a simple first-party-vs-third-party
+    #      proxy.
+    #   3. Real BORN_DATE conflicts in the data (e.g., "Alexander II"
+    #      canonicalising both the Russian and Scottish kings into one
+    #      entity with two birth years) are detected via the OWL
+    #      functional-property axiom and resolved via a chain policy.
+    # ------------------------------------------------------------------
+    _extended_pipeline_demo(kb)
 
 
 def _make_kb(

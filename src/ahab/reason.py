@@ -41,6 +41,8 @@ from kb.reason import (
     Rule, DisjunctiveRule, Derivation, kb_has,
     apply_all_rules_to_fixpoint,
 )
+from kb.ontology import Ontology
+from kb.conflict import apply_with_conflict_resolution, KeepAllPolicy
 
 
 # ----------------------------------------------------------------------
@@ -48,17 +50,62 @@ from kb.reason import (
 # ----------------------------------------------------------------------
 
 
+def _theme_frequencies(utterances: list[Utterance]) -> Counter:
+    """How often each theme appears across the corpus. Used to assign
+    per-theme confidence: frequently-attested themes are treated as
+    more reliably annotated than themes mentioned once."""
+    c: Counter = Counter()
+    for u in utterances:
+        for theme in u.themes:
+            c[theme] += 1
+    return c
+
+
+def _theme_confidence(freq: int, max_freq: int) -> float:
+    """Map a theme's corpus frequency to a confidence in [0.5, 1.0].
+
+    A log-scale: rare themes (one mention) get the floor 0.5; the
+    most-attested theme gets 1.0; everything else interpolates
+    smoothly. Log rather than linear so a theme appearing 10 times
+    is treated as much more reliable than one appearing once — but
+    not 10× more reliable, which would be too aggressive."""
+    import math
+    if max_freq <= 1 or freq <= 0:
+        return 1.0
+    return 0.5 + 0.5 * (math.log(freq) / math.log(max_freq))
+
+
 def build_utterance_kb(utterances: list[Utterance]) -> KB:
-    # Project each Utterance into 4-5 triples keyed by a synthetic
-    # utterance id ("u00".."u34"). The source_sentence_idx slot holds
-    # the utterance index so a derived fact can be traced back to the
-    # specific utterance (the closest analogue to Wikipedia's
-    # source_article + sentence_idx for this corpus).
+    """Project each Utterance into 4-5 triples keyed by a synthetic
+    utterance id ("u00".."u34").
+
+    HAS_THEME triples carry a confidence reflecting how often the
+    theme appears in the corpus — frequently-attested themes are
+    treated as more reliably annotated than themes mentioned once.
+    The engine propagates this confidence through derivation chains
+    (theme co-occurrence → transitive thematic reach), so chains
+    through rare themes carry visibly lower confidence than chains
+    through common ones.
+
+    Source_sentence_idx slot holds the utterance index — derived
+    facts can be traced back to the specific utterance (the closest
+    analogue to Wikipedia's source_article + sentence_idx for this
+    corpus)."""
+    freq = _theme_frequencies(utterances)
+    max_freq = max(freq.values()) if freq else 1
+
     triples: list[Triple] = []
     for i, u in enumerate(utterances):
         uid = f"u{i:02d}"
         for theme in u.themes:
-            triples.append(Triple(uid, "HAS_THEME", theme, "Moby-Dick", i))
+            conf = _theme_confidence(freq[theme], max_freq)
+            triples.append(Triple(
+                uid, "HAS_THEME", theme, "Moby-Dick", i,
+                confidence=conf,
+            ))
+        # The other utterance metadata (addressee, speech-act, mood)
+        # stays at default confidence 1.0 — they're direct facts about
+        # the utterance, not interpretive labels like themes.
         triples.append(Triple(uid, "ADDRESSED_TO", u.addressee, "Moby-Dick", i))
         triples.append(Triple(uid, "IS_SPEECH_ACT", u.speech_act, "Moby-Dick", i))
         triples.append(Triple(uid, "HAS_MOOD", u.mood, "Moby-Dick", i))
@@ -71,31 +118,33 @@ def build_utterance_kb(utterances: list[Utterance]) -> KB:
 
 
 def r_theme_co_occurrence(kb: KB) -> list[Derivation]:
-    """Same-utterance theme pairs → CO_OCCURS_WITH.
+    """Same-utterance theme pairs → CO_OCCURS_WITH (one direction).
 
-    For each utterance with themes {T1, ..., Tn}, emit a CO_OCCURS_WITH
-    triple for every ordered pair (Ti, Tj) where i ≠ j. Symmetric in
-    spirit; emitted both ways so out_facts/in_facts both return them."""
+    Emits CO_OCCURS_WITH(T1, T2) for every theme pair sharing an
+    utterance, with T1 < T2 lexicographically. The OWL ontology
+    declares CO_OCCURS_WITH symmetric, so the reverse direction
+    auto-derives — saves us emitting both halves manually.
+
+    Confidence is propagated: a derived CO_OCCURS_WITH inherits the
+    noisy-AND of its two input HAS_THEME confidences (which are
+    set by the corpus-frequency heuristic in build_utterance_kb).
+    Rare themes co-occurring with rare themes get visibly lower
+    confidence than two common themes' co-occurrence."""
     out: list[Derivation] = []
-    # First group themes by utterance so we only consider pairs that
-    # actually share an utterance — avoids an O(N²) blowup over all
-    # HAS_THEME triples (where most pairs come from different
-    # utterances and don't co-occur).
+    # Group themes by utterance to avoid the cross-utterance O(N²).
     themes_by_utt: dict[str, list[Triple]] = defaultdict(list)
     for t in kb.triples:
         if t.relation == "HAS_THEME":
             themes_by_utt[t.subject].append(t)
-    # Emit each (T1, T2) pair once across the whole corpus, not once
-    # per utterance — co-occurrence is a corpus-level property, and
-    # the rule would generate exact duplicates otherwise.
+    # Emit each unordered pair once across the corpus — OWL's
+    # symmetric_property axiom will produce the reverse direction.
     seen: set[tuple[str, str]] = set()
     for uid, theme_triples in themes_by_utt.items():
-        for t1 in theme_triples:
-            for t2 in theme_triples:
-                if t1.object == t2.object:
-                    continue
-                # Emit both (A,B) and (B,A) so out_facts/in_facts both
-                # return the relation — co-occurrence is symmetric.
+        # Sort so we always emit (low, high) — deterministic and
+        # avoids needing to canonicalise pairs later.
+        sorted_themes = sorted(theme_triples, key=lambda t: t.object)
+        for i, t1 in enumerate(sorted_themes):
+            for t2 in sorted_themes[i + 1:]:
                 key = (t1.object, t2.object)
                 if key in seen:
                     continue
@@ -112,43 +161,35 @@ def r_theme_co_occurrence(kb: KB) -> list[Derivation]:
     return out
 
 
-def r_thematic_reach(kb: KB) -> list[Derivation]:
-    """Transitive closure of CO_OCCURS_WITH → THEMATICALLY_REACHES.
+# ----------------------------------------------------------------------
+# Ontology — declarative replacement for the old r_thematic_reach.
+#
+# Two OWL axioms in place of one Python function:
+#   - CO_OCCURS_WITH is symmetric: r_theme_co_occurrence emits one
+#     direction; the symmetric axiom derives the other.
+#   - CO_OCCURS_WITH ⊑ THEMATICALLY_REACHES (sub-property): every
+#     co-occurrence is also a thematic reach. This is the base case
+#     for transitive closure.
+#   - THEMATICALLY_REACHES is transitive: closes the relation.
+#
+# Functional axioms also surface metadata anomalies — if an
+# extraction ever assigned multiple addressees/speech-acts/moods to
+# one utterance, the conflict module would flag it.
+# ----------------------------------------------------------------------
 
-    Base case: every CO_OCCURS_WITH(A, B) lifts to THEMATICALLY_REACHES.
-    Inductive step: TR(A, B) ∧ CO(B, C) → TR(A, C). The two-rule shape
-    keeps CO_OCCURS_WITH semantically faithful (only directly-co-
-    occurring themes) while letting TR represent transitive reach.
-    Multiple iterations of fixpoint close the chain."""
-    out: list[Derivation] = []
-    for t in kb.triples:
-        if t.relation == "CO_OCCURS_WITH":
-            derived = Triple(
-                t.subject, "THEMATICALLY_REACHES", t.object, "(derived)", -1,
-            )
-            expl = (
-                f"'{t.subject}' directly co-occurs with '{t.object}', "
-                f"so reaches it."
-            )
-            out.append(Derivation("r_thematic_reach", derived, [t], expl))
-    for t1 in kb.triples:
-        if t1.relation != "THEMATICALLY_REACHES":
-            continue
-        for t2 in kb.out_facts(t1.object, "CO_OCCURS_WITH"):
-            if t2.object == t1.subject:
-                continue
-            derived = Triple(
-                t1.subject, "THEMATICALLY_REACHES", t2.object,
-                "(derived)", -1,
-            )
-            expl = (
-                f"'{t1.subject}' reaches '{t1.object}', and '{t1.object}' "
-                f"co-occurs with '{t2.object}'; therefore '{t1.subject}' "
-                f"thematically reaches '{t2.object}'."
-            )
-            out.append(Derivation("r_thematic_reach", derived,
-                                   [t1, t2], expl))
-    return out
+
+ONTOLOGY = (
+    Ontology("ahab")
+    .symmetric_property("CO_OCCURS_WITH")
+    .sub_property_of("CO_OCCURS_WITH", "THEMATICALLY_REACHES")
+    .transitive_property("THEMATICALLY_REACHES")
+    # Each utterance has exactly one addressee, speech-act, and mood.
+    # If the corpus ever asserted two, the OWL functional rule emits
+    # CONFLICT_FUNCTIONAL — surfaced by conflict.detect_conflicts.
+    .functional_property("ADDRESSED_TO")
+    .functional_property("IS_SPEECH_ACT")
+    .functional_property("HAS_MOOD")
+)
 
 
 # Speech-label: collapse two metadata channels (speech-act + mood) into a
@@ -256,11 +297,18 @@ def r_peaceful_addressee(kb: KB) -> list[Derivation]:
 
 
 RULES = [
+    # Co-occurrence is hand-written because it bridges from the
+    # domain-specific HAS_THEME shape to the generic CO_OCCURS_WITH —
+    # OWL axioms can't see inside an utterance.
     Rule("r_theme_co_occurrence", r_theme_co_occurrence),
-    Rule("r_thematic_reach", r_thematic_reach),
+    # The disjunctive speech-label rule stays — collapsing two
+    # metadata channels into one is the natural DisjunctiveRule shape.
     R_SPEECH_LABEL.to_rule(),
+    # Classification rules stay as Python — disjunction over object
+    # values (mood ∈ {introspective set}) is the natural function form.
     Rule("r_confrontational", r_confrontational),
     Rule("r_introspective", r_introspective),
+    # Stratum-1 negation rules stay — negation isn't OWL-shaped.
     Rule("r_isolated_theme", r_isolated_theme, stratum=1),
     Rule("r_peaceful_addressee", r_peaceful_addressee, stratum=1),
 ]
@@ -288,12 +336,19 @@ def main() -> None:
           f"({n_themes} distinct themes).")
     print()
 
-    kb_ext, derivations, stats = apply_all_rules_to_fixpoint(kb, rules=RULES)
+    # Run the full pipeline: hand-rules + OWL ontology + (vacuous)
+    # conflict resolution. The ontology declares the property
+    # characteristics; the engine compiles them into rules and runs
+    # them alongside the hand-written ones.
+    kb_ext, derivations, conflicts, stats = apply_with_conflict_resolution(
+        kb, rules=RULES, ontology=ONTOLOGY, policy=KeepAllPolicy(),
+    )
     print("FIXPOINT CONVERGENCE")
     print("-" * 78)
     print(f"  Stratum 0 iterations:  {stats['stratum_0_iters']} "
           f"(per-iter new facts: {stats['stratum_0_per_iter']})")
     print(f"  Stratum 1 derivations: {stats['stratum_1_count']}")
+    print(f"  Conflicts detected:    {stats['conflicts_detected']}")
     print(f"  Total triples after reasoning: {len(kb_ext.triples):,}")
     print()
 
@@ -306,9 +361,14 @@ def main() -> None:
         print(f"  {rule_name:<32s} {n:>5d}")
     print()
 
-    # --- Fixpoint demo: transitive theme reach. ---
-    print("FIXPOINT: TRANSITIVE THEME CLOSURES")
+    # --- Fixpoint demo: transitive theme reach (via OWL axioms). ---
+    print("FIXPOINT VIA OWL: TRANSITIVE THEME CLOSURES")
     print("-" * 78)
+    print("  (The OWL ontology declared CO_OCCURS_WITH symmetric and")
+    print("   sub-property of the transitive THEMATICALLY_REACHES.")
+    print("   The hand-written r_thematic_reach is now redundant — the")
+    print("   engine closes the chain from the declarative axioms alone.)")
+    print()
     for seed in ["whale", "vengeance", "soul", "weariness", "fate"]:
         direct = sorted({
             t.object for t in kb_ext.out_facts(seed, "CO_OCCURS_WITH")
@@ -322,6 +382,46 @@ def main() -> None:
         if new_via_closure:
             print(f"    new via closure: {new_via_closure[:6]}"
                   f"{'...' if len(new_via_closure) > 6 else ''}")
+    print()
+
+    # --- Confidence attenuation through transitive chains. ---
+    print("CONFIDENCE ATTENUATION THROUGH TRANSITIVE CHAINS")
+    print("-" * 78)
+    print("  (HAS_THEME confidence is set from theme frequency in the")
+    print("   corpus — common themes are treated as more reliably")
+    print("   annotated. The engine propagates noisy-AND through every")
+    print("   derivation, so longer transitive reach chains carry")
+    print("   visibly lower confidence.)")
+    print()
+    # Show the confidence of a few direct vs transitive reaches.
+    # 'fate' is the most-attested theme; chains through it should
+    # carry higher confidence than chains through 'anguish' (one
+    # mention only).
+    samples = []
+    for t in kb_ext.triples:
+        if t.relation != "THEMATICALLY_REACHES":
+            continue
+        if t.subject in ("scar", "weariness") and t.confidence < 1.0:
+            samples.append(t)
+    samples.sort(key=lambda t: t.confidence)
+    print(f"  Lowest-confidence THEMATICALLY_REACHES facts "
+          f"(showing 6 of {len(samples)}):")
+    for t in samples[:6]:
+        print(f"    {t.subject:<10s} -> {t.object:<15s} "
+              f"conf={t.confidence:.3f}")
+    print()
+    # Show that HAS_THEME confidences vary.
+    theme_conf: dict[str, float] = {}
+    for t in kb_ext.triples:
+        if t.relation == "HAS_THEME":
+            theme_conf[t.object] = t.confidence
+    by_conf = sorted(theme_conf.items(), key=lambda x: x[1])
+    print("  HAS_THEME confidences (least to most attested):")
+    for theme, conf in by_conf[:4]:
+        print(f"    '{theme}'  conf={conf:.3f}")
+    print("    ...")
+    for theme, conf in by_conf[-2:]:
+        print(f"    '{theme}'  conf={conf:.3f}")
     print()
 
     # --- Disjunctive rule (alternative relations). ---

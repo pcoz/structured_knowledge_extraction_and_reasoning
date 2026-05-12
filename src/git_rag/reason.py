@@ -42,6 +42,8 @@ from kb.reason import (
     Rule, DisjunctiveRule, Derivation, kb_has,
     apply_all_rules_to_fixpoint,
 )
+from kb.ontology import Ontology
+from kb.conflict import apply_with_conflict_resolution, KeepAllPolicy
 
 
 # ----------------------------------------------------------------------
@@ -102,41 +104,10 @@ def build_git_kb(items: list[KnowledgeItem]) -> KB:
 # ----------------------------------------------------------------------
 
 
-def r_transitive_related(kb: KB) -> list[Derivation]:
-    """Transitive closure of RELATED_TO → REACHABLE_FROM.
-
-    Base case lifts RELATED_TO into REACHABLE_FROM; the inductive step
-    extends with one more hop. Fixpoint closes arbitrarily long
-    navigation chains."""
-    out: list[Derivation] = []
-    for t in kb.triples:
-        if t.relation == "RELATED_TO":
-            derived = Triple(
-                t.subject, "REACHABLE_FROM", t.object, "(derived)", -1,
-            )
-            expl = (
-                f"{t.subject} directly relates to {t.object}, so is "
-                f"reachable from it."
-            )
-            out.append(Derivation("r_transitive_related", derived,
-                                   [t], expl))
-    for t1 in kb.triples:
-        if t1.relation != "REACHABLE_FROM":
-            continue
-        for t2 in kb.out_facts(t1.object, "RELATED_TO"):
-            if t2.object == t1.subject:
-                continue
-            derived = Triple(
-                t1.subject, "REACHABLE_FROM", t2.object, "(derived)", -1,
-            )
-            expl = (
-                f"{t1.subject} reaches {t1.object}, and {t1.object} "
-                f"relates to {t2.object}; therefore {t1.subject} is "
-                f"reachable from {t2.object}."
-            )
-            out.append(Derivation("r_transitive_related", derived,
-                                   [t1, t2], expl))
-    return out
+# Transitive closure of RELATED_TO is now declared via the OWL
+# ontology below (sub_property_of + transitive_property axioms), not
+# a hand-written rule. The engine compiles them into rules that
+# produce identical closure with full provenance.
 
 
 # Disjunctive rule: an item needs operator attention if it carries
@@ -197,8 +168,32 @@ def r_safe_to_automate(kb: KB) -> list[Derivation]:
     return out
 
 
+# ----------------------------------------------------------------------
+# Ontology — declarative replacements for the old hand-rule
+# r_transitive_related, plus a few new axioms that catch data
+# anomalies through functional-property conflict detection.
+#
+# What the ontology gives us:
+#   - RELATED_TO ⊑ REACHABLE_FROM, REACHABLE_FROM transitive: closes
+#     the multi-hop navigation graph without a Python rule.
+#   - HAS_TOPIC / HAS_SUBTOPIC / HAS_INTENT functional: each item has
+#     exactly one of each. If an extraction ever assigned two, the
+#     OWL functional-property rule emits CONFLICT_FUNCTIONAL —
+#     surfaced by the conflict module.
+# ----------------------------------------------------------------------
+
+
+ONTOLOGY = (
+    Ontology("git-docs")
+    .sub_property_of("RELATED_TO", "REACHABLE_FROM")
+    .transitive_property("REACHABLE_FROM")
+    .functional_property("HAS_TOPIC")
+    .functional_property("HAS_SUBTOPIC")
+    .functional_property("HAS_INTENT")
+)
+
+
 RULES = [
-    Rule("r_transitive_related",  r_transitive_related),
     Rule("r_recovery_operation",  r_recovery_operation),
     R_NEEDS_CARE.to_rule(),
     Rule("r_safe_to_automate",    r_safe_to_automate,  stratum=1),
@@ -227,12 +222,18 @@ def main() -> None:
           f"{n_items} items.")
     print()
 
-    kb_ext, derivations, stats = apply_all_rules_to_fixpoint(kb, rules=RULES)
+    # Run the full pipeline: hand-rules + OWL ontology + (vacuous)
+    # conflict resolution. The transitive RELATED_TO closure now
+    # comes from OWL axioms rather than a hand-written rule.
+    kb_ext, derivations, conflicts, stats = apply_with_conflict_resolution(
+        kb, rules=RULES, ontology=ONTOLOGY, policy=KeepAllPolicy(),
+    )
     print("FIXPOINT CONVERGENCE")
     print("-" * 78)
     print(f"  Stratum 0 iterations:  {stats['stratum_0_iters']} "
           f"(per-iter new facts: {stats['stratum_0_per_iter']})")
     print(f"  Stratum 1 derivations: {stats['stratum_1_count']}")
+    print(f"  Conflicts detected:    {stats['conflicts_detected']}")
     print(f"  Total triples:         {len(kb_ext.triples):,}")
     print()
 
@@ -245,9 +246,14 @@ def main() -> None:
         print(f"  {rule_name:<32s} {n:>5d}")
     print()
 
-    # --- Fixpoint: multi-hop navigation. ---
-    print("FIXPOINT: TRANSITIVE NAVIGATION (REACHABLE_FROM)")
+    # --- Fixpoint: multi-hop navigation via OWL declarations. ---
+    print("FIXPOINT VIA OWL: TRANSITIVE NAVIGATION (REACHABLE_FROM)")
     print("-" * 78)
+    print("  (The OWL ontology declared RELATED_TO sub-property-of")
+    print("   REACHABLE_FROM, and REACHABLE_FROM transitive. The")
+    print("   transitive closure that was a hand-written rule before")
+    print("   is now compiled from declarative axioms.)")
+    print()
     seeds = ["commit.undo_last_unpushed", "branch.delete_local",
              "merge.handle_conflict"]
     for seed in seeds:

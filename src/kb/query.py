@@ -20,11 +20,31 @@ KB_PATH = Path(__file__).resolve().parent / "kb_1000_articles.json"
 
 @dataclass
 class Triple:
+    # Core schema — unchanged since v1. Every triple has these five
+    # fields and the existing JSON KBs round-trip them losslessly.
     subject: str
     relation: str
     object: str
     source_article: str
     source_sentence_idx: int
+
+    # Production schema extensions. All optional with defaults that
+    # match the original semantics: a triple with no temporal slots
+    # and confidence 1.0 behaves exactly like a v1 triple, so old
+    # JSON files load unchanged and old rules need no edits.
+    #
+    # valid_from / valid_to: ISO-8601 date strings ("YYYY-MM-DD",
+    # "YYYY-MM", "YYYY", or BC forms like "356 BC"). None means
+    # unbounded on that side ("valid from forever" / "still valid").
+    # See src/kb/temporal.py for interval operations.
+    #
+    # confidence: noisy-AND combined through derivation chains
+    # (see src/kb/confidence.py). 1.0 = asserted as certain. Rules
+    # propagate confidence automatically via the dispatcher when
+    # `propagate_confidence=True` (the default).
+    valid_from: str | None = None
+    valid_to: str | None = None
+    confidence: float = 1.0
 
 
 @dataclass
@@ -34,6 +54,13 @@ class KB:
     triples: list[Triple]
     alias_map: dict[str, str]
     n_articles: int
+
+    # Optional source-authority ranking, consumed by the
+    # AuthorityWinsPolicy in src/kb/conflict.py. Maps source name
+    # (matching Triple.source_article) to a float in [0.0, 1.0]
+    # where higher = more authoritative. Empty by default — policies
+    # that don't use authority work unchanged.
+    source_authority: dict[str, float] = field(default_factory=dict)
 
     # Adjacency indexes built in __post_init__. Index by entity for
     # O(1) neighbour lookups and BFS traversal. Each entry stores
@@ -56,13 +83,29 @@ class KB:
 
     @classmethod
     def load(cls, path: Path) -> "KB":
+        """Load a KB from JSON. Backward-compatible with v1 schemas:
+        unknown keys are dropped, missing optional keys (valid_from /
+        valid_to / confidence) default to the v1-equivalent values.
+        Lets old kb_*.json files load unchanged after schema changes."""
         with open(path, "r", encoding="utf-8") as f:
             payload = json.load(f)
-        triples = [Triple(**t) for t in payload["triples"]]
+        # Filter to known Triple fields so a newer JSON written with
+        # extra keys doesn't blow up an older codebase, and an older
+        # JSON written without the new keys defaults cleanly.
+        known = {
+            "subject", "relation", "object",
+            "source_article", "source_sentence_idx",
+            "valid_from", "valid_to", "confidence",
+        }
+        triples = [
+            Triple(**{k: v for k, v in t.items() if k in known})
+            for t in payload["triples"]
+        ]
         return cls(
             triples=triples,
             alias_map=payload.get("alias_map", {}),
             n_articles=payload.get("n_articles", 0),
+            source_authority=payload.get("source_authority", {}),
         )
 
     def entities(self) -> set[str]:
