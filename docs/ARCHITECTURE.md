@@ -380,6 +380,16 @@ OWL DSL and rule compiler:
   the engine's negation semantics).
 - Functional / inverse-functional axioms emit `CONFLICT_*` marker
   facts when violated; the conflict module consumes them.
+- `src/kb/ontology_owl.py` (soft-dep: `owlready2` + Java JVM) is
+  the alternative backend for the same Ontology DSL — translates
+  axioms + KB into OWL/RDF and runs a real description-logic
+  reasoner (HermiT by default, Pellet alternative). Handles axioms
+  the rule compiler can't express: cardinality restrictions,
+  complex class expressions (intersection / union / complement /
+  someValuesFrom / allValuesFrom), full DL classification, and
+  inconsistency detection. Degrades cleanly when the soft
+  dependencies are absent; runs at high stratum so the Horn /
+  negation rules close first.
 
 Conflict detection and resolution:
 

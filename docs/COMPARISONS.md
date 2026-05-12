@@ -370,14 +370,29 @@ reasoning, modal logic, and microtheory-scoped facts — features the
 current engine doesn't have. Construction-time only; runtime is still
 unchanged.
 
-**Cheaper sibling pattern — OWL DL reasoner instead of CYC.**
-Pattern A also works against a free DL reasoner (HermiT, Pellet,
-FaCT++ via `owlready2`), gaining description-logic subsumption,
-cardinality restrictions, and complex class expressions beyond what
-our compile-to-rules OWL DSL already covers. This is the planned
-`src/kb/ontology_owl.py` extension — same architectural shape as
-Pattern A, no CYC licensing dependency, narrower capability
-augmentation.
+**Cheaper sibling pattern — OWL DL reasoner instead of CYC, NOW
+SHIPPED.** Pattern A also works against a free DL reasoner — HermiT
+(by default) or Pellet via `owlready2`. This is now real and
+available as `src/kb/ontology_owl.py`. Same architectural shape as
+the CYC Pattern A; soft dependencies (owlready2 + a Java JVM); no
+CYC licensing required. Capability augmentation:
+
+  - **Cardinality restrictions**: `min/max/exactCardinality` axioms
+    via `Ontology.cardinality(prop, exactly=N, ...)`. HermiT
+    enforces; violations surface as inconsistencies.
+  - **Complex class expressions**: intersection, union, complement,
+    someValuesFrom, allValuesFrom via the corresponding DSL methods.
+    HermiT computes the inferred class hierarchy.
+  - **Full DL classification**: subclass-chain inferences, class-
+    intersection memberships, etc.
+  - **Inconsistency detection**: when axioms + ABox are unsatisfiable
+    under OWL semantics, HermiT throws; we catch and surface as
+    `CONTRADICTION_DETECTED`.
+
+Verified end-to-end with seven assertion-backed stress scenarios in
+`src/kb/ontology_owl.py`. The adapter degrades cleanly when its
+soft dependencies are absent — the rest of the engine keeps running
+unchanged on pure stdlib hosts.
 
 **Future direction — microtheories on the Triple schema.** CYC-style
 contexts could be added as a `context` slot on the Triple schema,

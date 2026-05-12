@@ -79,6 +79,20 @@ src/
 │   │                     emit CONFLICT_* markers consumed by conflict.py.
 │   │                     KEY FUNCS: compile_to_rules
 │   │
+│   ├── ontology_owl.py   HermiT (and Pellet) integration via owlready2.
+│   │                     Construction-time enricher: translates our
+│   │                     Ontology + KB to OWL/RDF, runs a real DL
+│   │                     reasoner, converts inferences back into
+│   │                     Triple / Derivation shape. Soft dependencies
+│   │                     (owlready2 + Java JVM); adapter degrades
+│   │                     cleanly with actionable messages if missing.
+│   │                     Brings full DL: cardinality, complex class
+│   │                     expressions (intersection / union /
+│   │                     complement / someValuesFrom / allValuesFrom),
+│   │                     inconsistency detection. Bundled 7-scenario
+│   │                     stress-test suite.
+│   │                     KEY FUNCS: hermit_enrich, hermit_rule
+│   │
 │   ├── conflict.py       Conflict detection (over CONFLICT_* markers)
 │   │                     and resolution policies. Stress-test suite
 │   │                     (11 scenarios) covering temporal overlap,
@@ -456,6 +470,39 @@ The engine propagates confidence automatically when
 `apply_all_rules_to_fixpoint` is called with `propagate_confidence=True`
 (the default). Each derivation gets confidence = noisy-AND of its
 inputs.
+
+### Use HermiT (full OWL DL reasoning)
+
+For inference beyond what the compile-to-rules backend covers —
+cardinality, complex class expressions, full DL classification —
+attach the HermiT adapter at a high stratum:
+
+```python
+from kb.ontology import Ontology
+from kb.ontology_owl import hermit_rule, hermit_enrich
+from kb.reason import RULES, apply_all_rules_to_fixpoint
+
+# Same DSL, plus the HermiT-only axioms:
+ont = (Ontology("geometry")
+       .declare_classes("Triangle", "Vertex")
+       .cardinality("HAS_VERTEX", exactly=3)
+       .domain("HAS_VERTEX", "Triangle")
+       .class_intersection("EquilateralTriangle",
+                           "Triangle", "AllSidesEqual"))
+
+# One-shot enrichment:
+enriched, derivs, info = hermit_enrich(kb, ont)
+print(info["consistent"], info["n_inferred"])
+
+# Or hook into the engine pipeline at stratum 5 (HermiT runs after
+# stratum-0 closure + stratum-1 negation):
+combined = list(RULES) + [hermit_rule(ont, stratum=5)]
+kb_ext, derivs, stats = apply_all_rules_to_fixpoint(kb, rules=combined)
+```
+
+Soft dependencies: `pip install owlready2` and any Java 8+ JVM
+(OpenJDK 17 recommended). The adapter degrades cleanly when missing
+— callers see a clear ImportError / RuntimeError, not a crash.
 
 ### Detect and resolve conflicts
 
@@ -864,6 +911,8 @@ python src/ahab/reason.py              # structured reasoning over utterances
 python src/git_rag/query.py            # 15 Git Q&A; manual-section sources
 python src/git_rag/reason.py           # structured reasoning over Git docs
 python src/distill/purify.py           # knowledge distillation + 6 stress tests
+python src/kb/ontology_owl.py          # HermiT DL reasoning + 7 stress tests
+                                       #   (skips gracefully without owlready2 / Java)
 ```
 
 Three assertion-backed stress suites pin engine properties:
@@ -894,6 +943,13 @@ Three assertion-backed stress suites pin engine properties:
   confidence-threshold pruning, marker preservation, end-to-end
   purification of the bundled noisy corpus, temporal scoping of
   classification changes, and authority-driven conflict resolution.
+
+- `kb/ontology_owl.py:_stress_test` — seven scenarios verifying the
+  HermiT (DL reasoner) integration: subclass-chain DL classification,
+  cardinality enforcement (violation + satisfaction), class
+  intersection inference, disjoint-class inconsistency detection,
+  someValuesFrom inference, and per-call World isolation. Skips
+  gracefully if owlready2 or Java are unavailable.
 
 If any assertion fails, the script exits non-zero — that's the
 regression signal.

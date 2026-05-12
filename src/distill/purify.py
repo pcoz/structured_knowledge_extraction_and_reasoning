@@ -557,6 +557,67 @@ def _stress_test() -> None:
     print()
 
 
+def _hermit_augment_distill() -> None:
+    """Optional HermiT pass demonstrating DL inconsistency detection
+    over a category-disjointness axiom that the rule-compiler can
+    express but the engine doesn't run by default.
+
+    Asserts Pluto's PRE-2006 classification as Planet while a
+    contemporaneous source classifies it as DwarfPlanet — under DL's
+    open-world semantics + the disjointness axiom, this is
+    inconsistent. The temporal layer in the main purification
+    pipeline handles this case correctly (different eras); HermiT
+    here illustrates what would happen WITHOUT that layer.
+
+    Soft-fails silently if owlready2 / Java aren't available."""
+    try:
+        from kb.ontology_owl import hermit_enrich
+    except Exception:
+        return
+    from kb.ontology import Ontology
+
+    print("=" * 78)
+    print("HermiT DL augmentation (optional, soft dep)")
+    print("=" * 78)
+    print()
+    print("Pluto-classification edge case under pure DL (no temporal):")
+    print()
+
+    ont = (
+        Ontology("astronomical-DL")
+        .declare_classes("Planet", "DwarfPlanet")
+        .disjoint_with("Planet", "DwarfPlanet")
+    )
+
+    # Strip temporal slots intentionally — this is the "atemporal"
+    # version. The full distill pipeline handles temporal scoping;
+    # this section shows the atemporal DL outcome.
+    kb = KB(triples=[
+        Triple("Pluto", "IS_A", "Planet", "old_textbook", -1),
+        Triple("Pluto", "IS_A", "DwarfPlanet", "IAU_2023", -1),
+    ], alias_map={}, n_articles=0)
+
+    try:
+        _, derivs, info = hermit_enrich(kb, ont)
+    except (ImportError, RuntimeError) as e:
+        print(f"  Skipped — HermiT not available: {e}")
+        print()
+        return
+
+    print(f"  Without temporal scoping → Consistent: {info['consistent']}")
+    if not info["consistent"]:
+        print(f"  HermiT proved: a single entity can't be in two")
+        print(f"  declared-disjoint classes simultaneously.")
+        print()
+        print(f"  (The full purification pipeline above used temporal")
+        print(f"  slots, so the two classifications occupy different")
+        print(f"  eras and the conflict dissolves. HermiT here shows")
+        print(f"  what would happen if we collapsed the time axis —")
+        print(f"  it's the right answer for atemporal DL semantics.)")
+    print()
+
+
 if __name__ == "__main__":
     main()
     _stress_test()
+    _hermit_augment_distill()

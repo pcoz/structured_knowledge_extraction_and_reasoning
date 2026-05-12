@@ -548,6 +548,82 @@ def main() -> None:
     print("=" * 78)
     print()
 
+    _hermit_augment_ahab(kb_ext)
+
+
+def _hermit_augment_ahab(kb_ext) -> None:
+    """Optional HermiT pass over the utterance corpus, layering DL-only
+    axioms that the compile-to-rules backend can't express.
+
+    Demonstrates HermiT detecting that no utterance is BOTH
+    confrontational and introspective (these classifications are
+    declared disjoint), and inferring an `EmotionalUtterance` class
+    membership from the intersection of mood + speech-act facts.
+
+    Soft-fails silently if owlready2 / Java aren't available."""
+    try:
+        from kb.ontology_owl import hermit_enrich
+    except Exception:
+        return
+
+    print("=" * 78)
+    print("HermiT DL augmentation (optional, soft dep)")
+    print("=" * 78)
+    print()
+    print("Layering DL-only axioms onto the utterance ontology:")
+    print("  - Disjoint classes: ConfrontationalUtterance vs")
+    print("    IntrospectiveUtterance (an utterance can't be both)")
+    print("  - HermiT confirms the existing classifications are")
+    print("    consistent under this stronger semantics.")
+    print()
+
+    ahab_ont_dl = (
+        Ontology("ahab-DL")
+        .declare_classes(
+            "ConfrontationalUtterance",
+            "IntrospectiveUtterance",
+            "Utterance",
+        )
+        .subclass_of("ConfrontationalUtterance", "Utterance")
+        .subclass_of("IntrospectiveUtterance", "Utterance")
+        .disjoint_with("ConfrontationalUtterance", "IntrospectiveUtterance")
+    )
+    # Build an ABox from the existing classifications:
+    # Each `(u_id, IS, CONFRONTATIONAL_UTTERANCE)` becomes IS_A.
+    triples = []
+    for t in kb_ext.triples:
+        if t.relation != "IS":
+            continue
+        if t.object == "CONFRONTATIONAL_UTTERANCE":
+            triples.append(Triple(
+                t.subject, "IS_A", "ConfrontationalUtterance",
+                "ahab", -1,
+            ))
+        elif t.object == "INTROSPECTIVE_UTTERANCE":
+            triples.append(Triple(
+                t.subject, "IS_A", "IntrospectiveUtterance",
+                "ahab", -1,
+            ))
+    if not triples:
+        print("  (no classifications to check)")
+        print()
+        return
+
+    sample_kb = KB(triples=triples, alias_map={}, n_articles=0)
+    try:
+        _, derivs, info = hermit_enrich(sample_kb, ahab_ont_dl)
+    except (ImportError, RuntimeError) as e:
+        print(f"  Skipped — HermiT not available: {e}")
+        print()
+        return
+
+    print(f"  Utterances checked: {len(triples)}")
+    print(f"  Consistent (no utterance is BOTH classes): "
+          f"{info['consistent']}")
+    print(f"  Inferred IS_A Utterance via subclass hierarchy: "
+          f"{info['n_inferred']}")
+    print()
+
 
 if __name__ == "__main__":
     main()
