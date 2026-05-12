@@ -292,3 +292,201 @@ The architecture is concrete and implementable at small scale. The
 production-scale validation requires AI-driven extraction at 100M+
 article scale maintaining the quality demonstrated at 1000-article
 scale.
+
+---
+
+## What SKEAR contributes to the field of knowledge representation
+
+A meta-positioning of everything above against the intellectual
+history of KR, and against the current LLM moment in particular.
+
+### The intellectual lineage
+
+Knowledge representation has been a 60-year argument with itself
+about how to balance two requirements that pull in opposite
+directions: **inspectability and formal reasoning** on one side,
+**scale and natural-language coverage** on the other.
+
+Major attempts have lined up on one pole or the other:
+
+  - **Frame systems** (Minsky 1974) and **conceptual graphs**
+    (Sowa 1976) — inspectable structure, hand-built, didn't scale.
+  - **CYC** (Lenat 1984-) — bet on hand-curation of common-sense
+    knowledge. 40 years in, has ~25M assertions and remarkable
+    inference power, but is constitutionally slow to build and
+    expensive to license.
+  - **Description Logic / OWL** (Brachman 1980s → W3C 2004) —
+    formal foundations, decidable inference, no native path to
+    construction at corpus scale.
+  - **Wikidata / DBpedia / Freebase** (2000s-) — scale via
+    community curation + automatic Wikipedia extraction; but
+    one fixed schema, no multi-framing, no native reasoning.
+  - **Knowledge graphs at scale** (Google 2012 et al.) —
+    industrial production deployment, but mostly opaque pipelines
+    and proprietary schemas.
+  - **Vector embeddings / RAG** (word2vec 2013 → transformers
+    2017 → vector DBs 2020+) — scale via learned representations,
+    cheap to ingest, but no inspectability, no formal reasoning,
+    and chunks rather than facts as the unit of retrieval.
+  - **LLM-as-KB** (GPT-3 era, 2020+) — radical scale, fluent
+    output, but knowledge stored in opaque weights with no audit
+    trail, no provenance, no formal reasoning, and structural
+    averaging across all training-data framings.
+
+Each of these is a real contribution. None is a satisfactory
+answer to the original question — how do we build a knowledge
+artifact that is *inspectable, formally reasonable, audit-rich,
+multi-framing-capable, AND practical to build at scale*?
+
+### Where SKEAR sits
+
+SKEAR is a synthesis position. It doesn't replace any of the
+systems above; it takes a structural commitment that lets it use
+their good parts without inheriting their limitations.
+
+That commitment is the **construction-time AI / serve-time
+deterministic split**, applied to KR as a primary architectural
+move rather than as a side effect.
+
+  - **At construction time**, AI does what AI is genuinely good
+    at: reading unstructured text and producing structured facts.
+    The output is plain JSON triples with provenance back to
+    source sentences.
+  - **At serving time**, the runtime is dictionary lookups and
+    graph traversals over the materialized JSON. No AI in the
+    loop. Sub-millisecond per query. Edge-deployable. No GPU,
+    no JVM at query time.
+
+Everything else SKEAR has — temporal validity, confidence,
+conflict resolution, OWL DL via HermiT, schema-as-data,
+multi-framing — is a feature added to this two-phase architecture
+without disturbing it. The architectural promise doesn't degrade
+as the capability surface grows; each new feature lives inside
+the construction half.
+
+### The six things SKEAR contributes
+
+Reading the six numbered novelties above as a single body of
+work, six specific contributions to KR-as-a-field stand out:
+
+  1. **A reconciliation of symbolic and sub-symbolic KR.** The
+     construction/runtime split lets AI carry the load LLMs are
+     actually good at (extraction, surface-form coverage) while
+     keeping symbolic, inspectable, formally-reasonable artifacts
+     at the serving layer. This isn't "use both"; it's a clean
+     division of labour with a hard architectural boundary
+     between them.
+
+  2. **The CYC destination, reached differently.** CYC's
+     architectural bet — that structured, inspectable, formally-
+     reasonable artifacts beat opaque-weights generation when
+     audit trails matter — was right and remains right. CYC's
+     limitation was the construction cost (decades of hand-
+     curation). SKEAR demonstrates that modern AI extraction
+     closes that bottleneck. Same destination, modern path.
+
+  3. **Schema-as-data with general scope axes.** The most
+     architecturally novel contribution. Rather than committing
+     to one schema and living within it (the historical KR
+     posture), SKEAR puts the schema *in the same triple shape
+     as the facts*, carrying its own scope (temporal, ideological,
+     methodological, legal-perspectival, cultural, school-of-
+     thought) and source attribution. The same subject can be
+     structurally reassembled across framings. This is the
+     structural answer to a problem nothing else in the field
+     has cleanly addressed: multi-framing as a first-class
+     capability, not a workaround.
+
+  4. **A union of cross-cutting capabilities normally separate.**
+     Per-fact provenance + Horn-clause + disjunctive + stratified
+     negation + OWL DL via HermiT + Allen temporal algebra +
+     uncertainty combinators + conflict resolution + distillation
+     pipeline + bidirectional structure↔text. Specialists have
+     each of these individually; SKEAR has them all coexisting in
+     one Triple shape, each one composable with the others.
+
+  5. **Cross-domain demonstrated on one engine.** Five fundamentally
+     different data shapes (encyclopedic, conversational metadata,
+     technical docs, noisy multi-source data, historical schema
+     drift) reasoned over by exactly the same engine. The claim
+     "KR is domain-agnostic when the architecture is right"
+     becomes verifiable rather than aspirational.
+
+  6. **A specific structural answer to LLM averaging.** The
+     architectural feature most directly pointed at the failure
+     mode of current AI. LLMs union all framings into one
+     probability distribution and have no internal switch for
+     "restrict to framing X." SKEAR has that switch as a scope
+     query — and the switch operates on first-class data, not
+     prompt-engineering. This is the dimension where no amount
+     of RLHF, retrieval augmentation, or system-prompt
+     scaffolding closes the gap.
+
+### What remains genuinely hard
+
+Honest about what's open:
+
+  - **Common-sense reasoning at CYC scale.** Some of CYC's content
+    is physical-world and social-conventional knowledge that
+    nobody writes down anywhere. You can elicit it from an LLM,
+    but with quality issues. SKEAR could plug into CYC for this
+    layer (the Pattern A integration described in
+    `docs/COMPARISONS.md`); it doesn't replicate it natively.
+
+  - **Higher-order logic.** CYC's CycL is HOL. SKEAR is first-
+    order Datalog. Closing this would require a different rule
+    language and a different reasoner; it's its own project.
+
+  - **Microtheories as fully first-class contexts.** The scope-
+    axis mechanism is a partial answer — it handles temporal,
+    ideological, methodological, and similar axes. Full CYC-style
+    nested context lattices with import / inheritance / inter-
+    context logic would be its own architectural extension.
+
+  - **Defeasible reasoning.** Defaults with exceptions ("birds
+    fly, unless penguin") as a first-class construct. Stratified
+    negation approximates; doesn't match.
+
+  - **Industrial-grade production maturity.** SKEAR is small,
+    clean, 50-stress-test-verified. Not the same as decades of
+    industrial hardening that real production deployments
+    eventually need.
+
+  - **Scale validation.** All demonstrations are at the 1,000-
+    article / 65-fact / 60-fact corpus scale. The claim that AI
+    extraction closes the volume gap at 100M+ scale is plausible
+    but not demonstrated.
+
+### The architectural bet, in the field's terms
+
+If knowledge representation is to remain useful in the LLM era,
+it has to do five things at once:
+
+  1. Use AI for the parts AI is good at — extraction, fluency,
+     paraphrase coverage.
+  2. Keep deterministic, inspectable artifacts at the serving
+     layer — provenance, audit trail, sub-millisecond latency.
+  3. Treat multi-framing — perspective, era, ideology, methodology,
+     school of thought — as first-class data, not narrative.
+  4. Scale without years of hand-curation.
+  5. Stay edge-deployable, license-able, and cheap at query time.
+
+SKEAR demonstrates that all five are simultaneously achievable
+with current technology. The 50 stress assertions and five cross-
+domain demos are the evidence; the architectural commitments
+(construction/runtime split, schema-as-data, per-fact provenance,
+soft-dependency adapter for full DL) are the mechanism.
+
+The historical claim, then: **the future of practical knowledge
+representation is neither LLMs alone nor symbolic KR alone, but
+the construction-time-AI / serve-time-deterministic split, with
+schema-as-data added to handle the multi-framing realities of
+contested knowledge.** SKEAR is one working implementation of
+that pattern, intended as a proof that the pattern is doable —
+and an invitation to other implementations.
+
+The field has needed this synthesis for at least a decade. The
+LLM moment has made the synthesis both possible (AI extraction
+is now cheap enough) and urgent (LLM averaging is doing real
+damage in contested domains). What SKEAR shows is that the
+synthesis is concrete, implementable, and already running.
