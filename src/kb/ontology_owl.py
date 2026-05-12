@@ -504,6 +504,219 @@ def hermit_enrich(
 # ----------------------------------------------------------------------
 
 
+# ----------------------------------------------------------------------
+# Stress-test suite + demo. Runs at module __main__ time. Skips
+# gracefully if owlready2 or the Java JVM is unavailable, so the test
+# is still useful on hosts that don't have the soft dependencies.
+# ----------------------------------------------------------------------
+
+
+def _stress_test() -> None:
+    print("=" * 78)
+    print("HermiT adapter stress tests")
+    print("=" * 78)
+    print()
+
+    # Pre-flight: skip the whole suite if the dependencies aren't here.
+    try:
+        _require_owlready2()
+    except ImportError as e:
+        print(f"SKIPPED: {e}")
+        return
+
+    # Tiny dry-run to check Java availability via a real reasoner call.
+    try:
+        import owlready2
+        w = owlready2.World()
+        o = w.get_ontology("http://sker.local/preflight#")
+        with o:
+            class _X(owlready2.Thing): pass
+            _X("_x")
+        with o:
+            owlready2.sync_reasoner_hermit(x=w, debug=0)
+    except FileNotFoundError:
+        print("SKIPPED: Java not installed. See aws/AWS_WORKFLOW.md for "
+              "an EC2-managed alternative.")
+        return
+    except Exception as e:
+        print(f"SKIPPED: pre-flight reasoner call failed: {e!r}")
+        return
+
+    def _kb(triples: list) -> KB:
+        return KB(
+            triples=[Triple(s, r, o, "(test)", -1) for s, r, o in triples],
+            alias_map={}, n_articles=0,
+        )
+
+    # ── Scenario 1: subclass chain DL classification ──────────────────
+    ont = (Ontology("s1")
+           .subclass_of("Philosopher", "Person")
+           .subclass_of("Person", "Mortal"))
+    kb = _kb([("Aristotle", "IS_A", "Philosopher")])
+    _, derivs, info = hermit_enrich(kb, ont)
+    inferred = {d.output.object for d in derivs
+                if d.output.relation == "IS_A"
+                and d.output.subject == "Aristotle"}
+    print("Scenario 1: subclass-chain DL classification")
+    print(f"  Aristotle inferred IS_A: {sorted(inferred)}")
+    assert info["consistent"]
+    assert inferred == {"Person", "Mortal"}
+    print("  PASS")
+    print()
+
+    # ── Scenario 2: cardinality violation ─────────────────────────────
+    ont = (Ontology("s2")
+           .declare_classes("Triangle", "Vertex")
+           .cardinality("HAS_VERTEX", exactly=3)
+           .domain("HAS_VERTEX", "Triangle"))
+    kb = _kb([
+        ("T", "IS_A", "Triangle"),
+        ("T", "HAS_VERTEX", "v1"),
+        ("T", "HAS_VERTEX", "v2"),
+        ("T", "HAS_VERTEX", "v3"),
+        ("T", "HAS_VERTEX", "v4"),
+    ])
+    _, derivs, info = hermit_enrich(kb, ont)
+    print("Scenario 2: cardinality violation (4 vertices vs exactly=3)")
+    print(f"  Consistent: {info['consistent']}")
+    assert info["consistent"] is False
+    assert any(d.output.relation == "CONTRADICTION_DETECTED" for d in derivs)
+    print("  PASS: HermiT detected the over-count")
+    print()
+
+    # ── Scenario 3: cardinality satisfied ─────────────────────────────
+    kb_ok = _kb([
+        ("T", "IS_A", "Triangle"),
+        ("T", "HAS_VERTEX", "a"),
+        ("T", "HAS_VERTEX", "b"),
+        ("T", "HAS_VERTEX", "c"),
+    ])
+    _, _, info = hermit_enrich(kb_ok, ont)
+    print("Scenario 3: cardinality satisfied (exactly 3)")
+    print(f"  Consistent: {info['consistent']}")
+    assert info["consistent"] is True
+    print("  PASS")
+    print()
+
+    # ── Scenario 4: class intersection inference ──────────────────────
+    ont = (Ontology("s4")
+           .declare_classes("Person", "Philosopher", "Living")
+           .class_intersection("LivingPhilosopher",
+                               "Person", "Philosopher", "Living"))
+    kb = _kb([
+        ("Aristotle", "IS_A", "Person"),
+        ("Aristotle", "IS_A", "Philosopher"),
+        ("Aristotle", "IS_A", "Living"),
+    ])
+    _, derivs, info = hermit_enrich(kb, ont)
+    inferred = {(d.output.subject, d.output.object) for d in derivs
+                if d.output.relation == "IS_A"}
+    print("Scenario 4: class intersection (Person ⊓ Philosopher ⊓ Living)")
+    print(f"  Inferences: {sorted(inferred)}")
+    assert ("Aristotle", "LivingPhilosopher") in inferred
+    print("  PASS")
+    print()
+
+    # ── Scenario 5: disjoint-class inconsistency ─────────────────────
+    ont = (Ontology("s5")
+           .declare_classes("Living", "Deceased")
+           .disjoint_with("Living", "Deceased"))
+    kb = _kb([
+        ("Schrodinger", "IS_A", "Living"),
+        ("Schrodinger", "IS_A", "Deceased"),
+    ])
+    _, _, info = hermit_enrich(kb, ont)
+    print("Scenario 5: disjoint-class membership (Living vs Deceased)")
+    print(f"  Consistent: {info['consistent']}")
+    assert info["consistent"] is False
+    print("  PASS")
+    print()
+
+    # ── Scenario 6: someValuesFrom inference ──────────────────────────
+    ont = (Ontology("s6")
+           .declare_classes("Person", "Parent")
+           .class_some_values("Parent", "HAS_CHILD", "Person"))
+    kb = _kb([
+        ("Alice", "HAS_CHILD", "Bob"),
+        ("Bob", "IS_A", "Person"),
+    ])
+    _, derivs, info = hermit_enrich(kb, ont)
+    inferred = {(d.output.subject, d.output.object) for d in derivs
+                if d.output.relation == "IS_A"}
+    print("Scenario 6: someValuesFrom (Parent ≡ ∃HAS_CHILD.Person)")
+    print(f"  Inferences: {sorted(inferred)}")
+    assert ("Alice", "Parent") in inferred
+    print("  PASS")
+    print()
+
+    # ── Scenario 7: graceful adapter behaviour when called repeatedly.
+    # Each invocation should be independent — no state leak across
+    # successive hermit_enrich calls on the same Ontology.
+    ont = (Ontology("s7")
+           .subclass_of("Cat", "Animal"))
+    for i in range(3):
+        kb = _kb([(f"cat_{i}", "IS_A", "Cat")])
+        _, derivs, info = hermit_enrich(kb, ont)
+        inferred = {d.output.object for d in derivs
+                    if d.output.subject == f"cat_{i}"
+                    and d.output.relation == "IS_A"}
+        assert inferred == {"Animal"}, f"FAIL at iter {i}: {inferred}"
+    print("Scenario 7: repeated invocations are independent (no state leak)")
+    print("  PASS: 3 sequential calls produced identical correct output")
+    print()
+
+    print("=" * 78)
+    print("All HermiT adapter stress-test assertions passed.")
+    print("=" * 78)
+    print()
+
+
+def _demo() -> None:
+    """A worked example: detect a real-world ontology inconsistency
+    (Pluto can't be both a Planet and a DwarfPlanet at the same time)
+    using DL semantics. Mirrors the temporal-scoping example in
+    src/distill/ but without temporal slots — pure class-disjointness."""
+    try:
+        _require_owlready2()
+    except ImportError:
+        return
+
+    print("=" * 78)
+    print("Worked example: HermiT detecting OWL inconsistency")
+    print("=" * 78)
+    print()
+
+    ont = (Ontology("astronomical")
+           .declare_classes("Planet", "DwarfPlanet")
+           .disjoint_with("Planet", "DwarfPlanet"))
+
+    # Without temporal scoping: Pluto-as-Planet and Pluto-as-DwarfPlanet
+    # WOULD be a violation. The distill suite shows this is handled
+    # by temporal slots; here we let it go through HermiT plainly.
+    kb = KB(triples=[
+        Triple("Pluto", "IS_A", "Planet", "old_textbook", -1),
+        Triple("Pluto", "IS_A", "DwarfPlanet", "IAU_2023", -1),
+    ], alias_map={}, n_articles=0)
+
+    try:
+        _, derivs, info = hermit_enrich(kb, ont)
+    except RuntimeError as e:
+        print(f"Skipped (Java missing): {e}")
+        return
+
+    print(f"Consistent: {info['consistent']}")
+    if not info["consistent"]:
+        for d in derivs:
+            print(f"  → {d.output.subject} {d.output.relation} {d.output.object}")
+            print(f"     ({d.explanation})")
+    print()
+    print("(With temporal slots — see src/distill/ — Pluto's two")
+    print("classifications would NOT conflict, because they're valid")
+    print("in different eras. HermiT supplies the atemporal DL")
+    print("reasoning; the project's temporal layer scopes it.)")
+    print()
+
+
 def hermit_rule(ontology: Ontology, stratum: int = 5) -> Rule:
     """Wrap `hermit_enrich` as a Rule, so it slots into the standard
     engine dispatcher.
@@ -529,3 +742,8 @@ def hermit_rule(ontology: Ontology, stratum: int = 5) -> Rule:
         return derivations
 
     return Rule(rule_name, fn, stratum=stratum)
+
+
+if __name__ == "__main__":
+    _demo()
+    _stress_test()
