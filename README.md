@@ -15,6 +15,13 @@ query time.
 > to the extent permitted by law. Free for non-commercial use; for
 > commercial licensing see [LICENSE.md](LICENSE.md).
 
+> **Repository:** *SKEAR* is the project's short name. The repository
+> slug stays `structured_knowledge_extraction_and_reasoning` — the
+> long form is search-discoverable and the existing clone URL,
+> forks, and issue links keep working. Same pattern as
+> `kubernetes/kubernetes` → "k8s": the URL is one thing, the brand
+> is another.
+
 ## The problem with today's AI answers
 
 Large language models are remarkable, but they have three habits that
@@ -173,6 +180,68 @@ Three layers, built once and then reused at query time:
 
 This split — **AI at construction time, no AI at query time** —
 is what makes the system auditable, cheap, fast, and trustworthy.
+
+## How SKEAR relates to Cyc
+
+The closest architectural relative to SKEAR is **Cyc** — the long-
+running symbolic-AI project built since the 1980s. Both reject
+"LLM-as-database" in favour of an inspectable, hand-curatable,
+formally-reasonable knowledge artifact. As SKEAR's inference
+machinery has matured, the meaningful comparison has shifted from
+"what can each do?" to "where do they sit relative to each other?"
+
+**What's matched.** SKEAR now covers most of what Cyc covers on
+inference plumbing: class hierarchies, property characteristics
+(transitive / symmetric / inverse / functional / inverse-functional /
+sub-property), domain/range typing, forward-chaining with fixpoint,
+contradiction detection, conflict resolution, knowledge curation as
+a programmable pipeline, and — via the shipped HermiT (OWL DL)
+adapter — full description-logic reasoning including cardinality
+restrictions, complex class expressions, and open-world inference.
+
+**What Cyc still has that SKEAR doesn't.** Higher-order logic
+(predicates as arguments), microtheories (facts holding in some
+contexts but not others), defeasible reasoning (defaults with
+exceptions), modal operators beyond time (knows / believes /
+desires), ~25M curated common-sense assertions, and decades of
+production-grade theorem-prover hardening. Each is a deep
+architectural feature in its own right.
+
+**What SKEAR has that Cyc doesn't.** Per-sentence textual
+provenance (stronger than Cyc's microtheory-level), bidirectional
+structure ↔ text via the cell-grammar layer, inspectable plain-text
+JSON artifacts, sub-millisecond runtime serving with no AI or JVM
+in the loop, edge deployability, four cross-domain demonstrations
+(Wikipedia / Moby-Dick / Git docs / astronomical distillation), a
+programmable distillation pipeline, the full Allen interval algebra
+as a first-class primitive, and 45 assertion-backed stress tests.
+
+### Integration possibilities
+
+The two systems compose cleanly without either having to change.
+Two practical patterns:
+
+- **Cyc as construction-time enricher.** Run SKEAR's extraction
+  pipeline; for each entity, query Cyc for common-sense facts
+  about it; adapt CYC's assertions into SKEAR's Triple shape;
+  merge into the KB via the existing conflict module. Ship the
+  enriched artifact — Cyc is gone after construction. Runtime
+  serving is unchanged.
+
+- **SKEAR's KB as ABox for a Cyc microtheory.** Treat Cyc as the
+  TBox (schema + common-sense + microtheories), SKEAR's extracted
+  KB as the ABox; run Cyc's inference engine over the union; pull
+  derived facts back with microtheory-attributed provenance.
+  Gains defeasibility, modal logic, and microtheory-scoped facts
+  that SKEAR's engine doesn't natively express.
+
+The OWL DL adapter (`src/kb/ontology_owl.py`) already demonstrates
+the construction-time-enricher pattern against HermiT — same
+architectural shape would work for Cyc, with the licensing and
+translation costs noted in `docs/COMPARISONS.md`.
+
+For the full structured comparison plus integration analysis, see
+[docs/COMPARISONS.md](docs/COMPARISONS.md).
 
 ## Trying it out
 
