@@ -20,6 +20,31 @@ GraphRAG, Wikidata, OpenIE, FrameNet, CYC, ...) see
 [ARCHITECTURE.md](ARCHITECTURE.md). For practical recipes see
 [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).
 
+## At a glance
+
+Five architectural contributions, summarised in one sentence each:
+
+1. **Cell-grammar with `shape × context × flavour`** — adds a third
+   axis (flavour: speaker style / corpus voice) to frame-semantics,
+   making phrase distributions condition on more than just the
+   semantic frame.
+2. **Interaction-type compact selectors** — encode (type + cells +
+   phrase overrides) as a hierarchical arithmetic-coded path; adding
+   a new surface variant costs ~0 bits on existing fires.
+3. **Bidirectional structure ↔ text mapping** — the same artifact
+   serves both as a queryable KG and a byte-exact compression target;
+   one representation, two roles.
+4. **Causal state-tracking for narrative compression** — runtime
+   state of relational facts; subsequent events that follow from
+   state cost ~0 bits to encode.
+5. **Provenance + reasoning + grounded generation in one artifact** —
+   a single persistent KB supports lookups, deductive inference (Horn
+   + disjunctive + stratified negation + OWL DL via HermiT),
+   conversational generation, and compression, all with per-fact
+   provenance.
+
+Each is explained in detail below.
+
 ---
 
 ## 1. Cell-grammar with `shape × context × flavour` decomposition

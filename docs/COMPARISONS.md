@@ -21,6 +21,23 @@ see [ARCHITECTURE.md](ARCHITECTURE.md). For the practical API and
 recipes see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md). This doc is
 the user-facing "how does this compare to X?" reference.
 
+## If you already know
+
+| If you're coming from... | SKEAR is like that, except... |
+|---|---|
+| **Vector RAG** | facts are typed triples not chunks; multi-hop is graph traversal not synthesis; provenance is per-sentence; no embedding storage |
+| **GraphRAG** | indexing is regex + curated patches + AI extraction (not LLM-built); rendering is deterministic (no LLM at synthesis); inference is Horn-clause + DL with explicit proofs |
+| **LLM-as-KB** (GPT/Claude/Llama/Gemini) | knowledge is explicit, not stored in weights; the runtime is dictionary lookups, not generation; updates are JSON edits, not retraining |
+| **Wikidata / DBpedia** | per-fact provenance includes the source SENTENCE (not just the source page); bidirectional structure ↔ text rendering; orders of magnitude smaller |
+| **OpenIE / TextRunner** | schema-constrained extraction (interaction types); typed slots; curated patches close precision gaps |
+| **FrameNet / PropBank / AMR** | adds flavour as a third axis to shape × context; adds the rendering direction (structure → text); discourse-level state via alias map + pronoun resolution |
+| **Cyc** | AI extracts at construction time (instead of decades of manual curation); per-sentence provenance; sub-ms runtime serving; no AI at query time |
+| **OWL DL reasoners** (HermiT/Pellet/FaCT++) | available via the shipped adapter; we sit on top of them rather than replace them; closed-world Horn engine for the simple cases, DL reasoner for the DL-only cases |
+| **Neo4j / Neptune / generic graph DBs** | a complete pipeline (extract → store → reason → render) rather than just storage; in-memory JSON ships with the demos; production deployments at scale can back the KB with Neo4j |
+| **BERT-based event extraction** | schema is explicit code (not weights); rendering direction supported; regex-fast or AI-extraction-fast, not transformer-inference-bound |
+
+Detailed entries on each follow below.
+
 ---
 
 ## Vector RAG (Pinecone, Weaviate, Chroma, Qdrant, LangChain, LlamaIndex)

@@ -15,6 +15,24 @@ take over, in part or in whole. For each: what's currently used,
 where it falls short, how this addresses it, what an implementation
 looks like, and what's gained.
 
+## Quick navigation
+
+39 use cases, organised into ten clusters. Jump to the one closest
+to yours:
+
+| Cluster | Use cases | Anchor in the project |
+|---|---|---|
+| [Regulated industries](#regulated-industries--hallucination-is-unacceptable) | 1-5 (legal, medical, financial compliance, pharma, tax) | strong hallucination-resistance |
+| [Technical / developer documentation](#technical--developer-documentation) | 6-9 (product docs, API docs, code understanding, runbooks) | the `src/git_rag/` pattern |
+| [Customer-facing knowledge](#customer-facing-knowledge) | 10-12 (support chatbots, HR, onboarding) | bounded curated answer space |
+| [Internal knowledge management](#internal-knowledge-management) | 13-15 (corporate KGs, meetings, R&D) | relationship-aware retrieval |
+| [Research and exploration](#research-and-exploration) | 16-18 (scientific literature, patents, news timelines) | multi-document reasoning |
+| [Brand / character / conversational](#brand-character-and-conversational) | 19-21 (branded agents, character agents, brand-voice content) | the `src/ahab/` pattern |
+| [Multi-source reconciliation / distillation](#multi-source-reconciliation--distillation) | 22-26 (MDM, sci-data integration, genealogy, reference data, news reconciliation) | the `src/distill/` pipeline |
+| [Time-aware knowledge](#time-aware-knowledge) | 27-31 (regulatory over time, sanctions, drug labeling, land registry, contract obligations) | Allen interval algebra |
+| [Audit-trail reconstruction](#audit-trail-reconstruction) | 32-35 (insider trading, patent priority, sci-misconduct, e-discovery) | per-sentence provenance |
+| [Domain structural constraints](#domain-specific-structural-constraints) | 36-39 (BOMs, pharma formulation, hardware design, curriculum) | HermiT OWL DL adapter |
+
 Use cases group by how much hallucination matters:
 
 - **Regulated** — hallucination is a deal-breaker. Strongest fit.

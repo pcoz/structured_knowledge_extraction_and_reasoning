@@ -20,6 +20,28 @@ query time.
 > long form is search-discoverable and the existing clone URL,
 > forks, and issue links keep working.
 
+## At a glance
+
+A representative interaction with a SKEAR-backed system over the
+demo Wikipedia corpus:
+
+> **You:** *Who tutored Alexander the Great?*
+> **System:** Aristotle. *(Source: article "Aristotle", sentence 0.)*
+
+> **You:** *How are Alexander the Great and Socrates connected?*
+> **System:** Alexander ← (TUTORED) ← Aristotle ← (TUTORED_BY) ←
+> Plato ← (TUTORED_BY) ← Socrates. *(All three relations sourced
+> to the original articles.)*
+
+> **You:** *What did Aristotle's student conquer?*
+> **System:** Persia, Egypt, the Persian Empire. *(Each conquest
+> sourced to the article "Alexander the Great".)*
+
+Every answer points back to the sentence it came from. Every
+derivation has a "since X therefore Y" trail. Every query runs in
+under a millisecond, with no AI in the loop. If the answer isn't in
+your documents, the system says so rather than fabricating one.
+
 ## The problem with today's AI answers
 
 Large language models are remarkable, but they have three habits that

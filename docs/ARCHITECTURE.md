@@ -14,6 +14,26 @@ hallucination-free knowledge graph — with optional AI augmentation
 at construction time for extraction and curation, and no AI in the
 loop at query time.
 
+## At a glance
+
+If you remember three things about SKEAR's architecture:
+
+1. **It's a pipeline, not a model.** Documents in → structured facts
+   out → reasoning → queries. AI helps with the first step
+   (extraction); everything after is deterministic code.
+
+2. **The artifact is plain JSON.** What gets shipped after
+   construction is human-readable triples with provenance. You can
+   open it in a text editor, grep it, diff it, version-control it.
+
+3. **No AI at query time.** Every answer is a dictionary lookup or a
+   graph traversal over the JSON. Sub-millisecond per query, no API
+   calls, no GPU, no JVM. The only soft dependencies (HermiT, owlready2)
+   exist for optional OWL DL inference at construction time.
+
+The three sections below walk through extraction (Layer 1), indexing
+and inference (Layer 2), and serving (Layer 3) in detail.
+
 ## The three layers
 
 ```
