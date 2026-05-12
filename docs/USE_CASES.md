@@ -32,6 +32,7 @@ to yours:
 | [Time-aware knowledge](#time-aware-knowledge) | 27-31 (regulatory over time, sanctions, drug labeling, land registry, contract obligations) | Allen interval algebra |
 | [Audit-trail reconstruction](#audit-trail-reconstruction) | 32-35 (insider trading, patent priority, sci-misconduct, e-discovery) | per-sentence provenance |
 | [Domain structural constraints](#domain-specific-structural-constraints) | 36-39 (BOMs, pharma formulation, hardware design, curriculum) | HermiT OWL DL adapter |
+| [Diachronic analysis / intellectual history](#diachronic-analysis--intellectual-history) | 40-43 (history of science, evolving legal interpretation, evolving medical understanding, contested terminology) | the `src/diachronic/` analyzer |
 
 Use cases group by how much hallucination matters:
 
@@ -1081,6 +1082,130 @@ Triples, HermiT validation of proposed programmes.
 **Win**: accreditation compliance becomes a deterministic check;
 prerequisite chains validated by construction; degree-programme
 changes auditable to accreditors.
+
+---
+
+## Diachronic analysis / intellectual history
+
+Use cases where the question is *"how has thinking about X changed
+over time?"* — and that "how" is itself part of the answer. Same
+subject, different ways of assembling it across eras. The
+`src/diachronic/` suite is built around exactly this: same word,
+different IS_A class, different properties, different organising
+vocabulary across periods.
+
+### 40. History of science / paradigm-shift tracking
+
+**Currently uses**: hand-written historiography, with LLM summary
+assistance. "How has our understanding of [concept] evolved?"
+
+**Where it falls short**: LLMs blend every era into one trained
+distribution and produce a smooth synthesised answer. Era-specific
+detail is lost; reversals (where a property held for centuries was
+later rejected) get glossed over; the answer is not traceable to
+period-specific sources.
+
+**How this addresses it**: each historical claim is a Triple with
+temporal validity and period-authoritative source. The schema
+itself (the IS_A class, the organising relations) is data that
+changes across eras. Queries like "what did Newton-era physics
+classify atoms as?" return the period-correct answer, sourced.
+
+**Implementation**: per-era extraction from primary sources,
+temporal slots on every claim, IS_A relations as first-class
+schema-as-data, conflict-detection rules that respect temporal
+scoping.
+
+**Win**: defensible historical accuracy; the textbook-physics smooth
+answer is no longer the only available answer; paradigm shifts
+become queryable events rather than narrative summaries.
+
+---
+
+### 41. Evolving legal / regulatory interpretation
+
+**Currently uses**: legal databases + LLM summarisation. "How has
+the court interpreted statute X over time?"
+
+**Where it falls short**: the interpretation isn't just a fact that
+changes — the framework (which constitutional doctrine applies,
+which precedents control, which canons of construction) shifts
+across eras. LLMs collapse all of this into one synthesised reading.
+
+**How this addresses it**: each interpretive claim is a Triple
+attributable to its court + opinion + date; the doctrinal
+framework (which classifications hold, which precedents are
+controlling) is itself data with temporal validity. The same
+statute carries different IS_A classifications across doctrinal
+eras (e.g., commerce-clause expansion / contraction).
+
+**Implementation**: per-opinion extraction, temporal validity from
+opinion date to overruling date, doctrine-as-data on every claim,
+DL constraints for what counts as a controlling precedent in
+which era.
+
+**Win**: legal-history research becomes a query; doctrinal shifts
+become traceable events; the interpretive lineage of any statute
+is reconstructible from the structured record.
+
+---
+
+### 42. Evolving medical understanding / shifting diagnostic categories
+
+**Currently uses**: medical literature search, history-of-medicine
+scholarship. "What did clinicians believe about [condition] in
+[year]?"
+
+**Where it falls short**: diagnostic categories themselves change
+(hysteria → various modern diagnoses; homosexuality removed from
+DSM; Asperger's merged with ASD). Etiological theories shift
+(humoral → germ theory → genetic). LLMs answer with current
+classification regardless of the asked-about era.
+
+**How this addresses it**: diagnostic categories are temporally-
+scoped IS_A relations; etiological explanations are
+period-authoritative Triples. The DSM-IV view of a condition is
+different data from the DSM-5 view — temporally distinct, both
+preserved.
+
+**Implementation**: per-edition DSM extraction, per-period medical-
+literature extraction, temporal slots reflecting when each
+classification was active, AuthorityWinsPolicy by clinical
+guideline authority for the period.
+
+**Win**: medico-legal review of historical care decisions gets the
+classification in force at the time; the history of psychiatry,
+endocrinology, oncology becomes a queryable record rather than a
+narrative summary.
+
+---
+
+### 43. Contested terminology / concept tracking across communities
+
+**Currently uses**: corpus-linguistics tooling (Sketch Engine,
+COCA) + LLM-assisted summary. "How has the meaning of [term]
+shifted?"
+
+**Where it falls short**: meaning shift isn't only lexical — it's
+ontological. "Liberal" in 1850 indexes different commitments than
+"liberal" in 2020. Different IS_A class, different co-occurring
+concepts, different rhetorical opponents. LLMs flatten this into
+a tidy etymology that misses the structural reorganisation.
+
+**How this addresses it**: each period's usage produces Triples
+with the period's IS_A, properties, and co-occurring concepts.
+Vocabulary-drift analysis (the same machinery as
+`src/diachronic/analyse.py`) surfaces the structural difference
+in how the term was assembled.
+
+**Implementation**: per-period corpus extraction, temporal
+validity per usage, schema-as-data so IS_A is a first-class
+historical record, drift-detection report comparing eras.
+
+**Win**: scholarly research on conceptual history becomes
+defensible and reproducible; the way a term was used in 1850 is
+structurally distinguishable from its use in 2020, not just
+described as "different."
 
 ---
 

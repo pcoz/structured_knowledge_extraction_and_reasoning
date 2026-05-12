@@ -103,7 +103,7 @@ The result is a system that:
 
 ## What's in the repository
 
-Four working demonstrations, each runnable in a few seconds without
+Five working demonstrations, each runnable in a few seconds without
 any setup, API keys, or external dependencies:
 
 ### A Wikipedia knowledge graph
@@ -139,6 +139,26 @@ answers from the manual. A miniature of how a real product would
 serve customer or internal support: feed it the manual, get an
 assistant that answers from it and nothing else.
 
+### A diachronic-analysis demo
+
+A new fifth suite that tracks **how the same subject material has
+been assembled differently across time** — using the atom across
+2,500 years as the worked example. The same word "atom" gets
+structured as an indivisible philosophical principle (Greeks), a
+rejected hypothesis (Aristotelians), a small hard sphere (Newton),
+a chemical accounting unit (Dalton), a composite structure with
+parts (Rutherford / Bohr), and a quantum wave function
+(Schrödinger / Heisenberg). At each era the IS_A class changes,
+the properties change, the organising vocabulary changes — the
+schema itself is part of the historical record.
+
+The analyzer surfaces schema drift, property reversals (Rutherford
+1911 making "indivisible" wrong after 2,000 years of consensus),
+vocabulary drift, and authorial lineages. Embeds prose on why this
+kind of representation matters for knowledge management and why
+LLMs — which blend every era into one trained distribution —
+struggle with it specifically. *(See `src/diachronic/`.)*
+
 ### A knowledge-distillation pipeline
 
 A deliberately-noisy astronomical-facts corpus (the same physical
@@ -155,7 +175,7 @@ classifications (Planet before 2006-08-24, Dwarf Planet from
 2006-08-24) are temporally disjoint and so NOT flagged as a conflict
 — both survive as valid facts of different eras.
 
-### Same reasoning engine, four different data shapes
+### Same reasoning engine, five different data shapes
 
 Each demo above ships with a companion reasoning script
 (`src/kb/reason.py`, `src/ahab/reason.py`, `src/git_rag/reason.py`,
@@ -173,7 +193,7 @@ operations by automation safety. The distillation pipeline
 demonstrates the full purification sweep: noisy in, canonical out.
 
 The point: structured reasoning is domain-agnostic. The same code
-paths drive all four; what differs is how each domain projects its
+paths drive all five; what differs is how each domain projects its
 records into the standard triple form.
 
 ## How it works, in plain language

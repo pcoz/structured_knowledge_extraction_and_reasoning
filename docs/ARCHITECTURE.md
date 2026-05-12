@@ -756,6 +756,7 @@ Three demos in this repo cover three source-text types:
 | Fictional / conversational | Moby-Dick (Ahab's quotes) | `src/ahab/talk.py` | `src/ahab/reason.py` |
 | Software documentation | Git manual | `src/git_rag/query.py` | `src/git_rag/reason.py` |
 | Knowledge distillation | multi-source noisy corpus | — | `src/distill/purify.py` |
+| Diachronic analysis | one subject across historical eras | — | `src/diachronic/analyse.py` |
 
 The same reasoning engine drives all four reasoners — only the
 projection from domain records into Triple form (and the choice of

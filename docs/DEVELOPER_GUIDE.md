@@ -173,20 +173,42 @@ src/
 │                         HAS_CAUTION ∪ USES_DESTRUCTIVE_COMMAND),
 │                         SAFE_TO_AUTOMATE (negation over derived)
 │
-└── distill/              knowledge distillation / purification demo
-    ├── corpus.py         deliberately-noisy multi-source astronomical
-    │                     corpus exhibiting all four pathologies:
-    │                     corroboration, functional-property conflicts,
-    │                     outdated estimates, low-authority noise.
-    │                     ~65 facts from 7 sources of varying authority.
-    │                     KEY DATA: _RAW_FACTS, SOURCE_AUTHORITY
+├── distill/              knowledge distillation / purification demo
+│   ├── corpus.py         deliberately-noisy multi-source astronomical
+│   │                     corpus exhibiting all four pathologies:
+│   │                     corroboration, functional-property conflicts,
+│   │                     outdated estimates, low-authority noise.
+│   │                     ~65 facts from 7 sources of varying authority.
+│   │                     KEY DATA: _RAW_FACTS, SOURCE_AUTHORITY
+│   │
+│   └── purify.py         the purification pipeline: OWL conflict
+│                         detection → chain-policy resolution →
+│                         multi-source corroboration boost (noisy-OR) →
+│                         confidence-threshold pruning → marker cleanup.
+│                         Bundled stress-test suite (6 scenarios).
+│                         KEY FUNCS: purify, corroborate, prune_below
+│
+└── diachronic/           changing-patterns-of-thinking demo
+    ├── corpus.py         the same subject (the atom) across six
+    │                     historical eras — Greek atomism, Aristotelian
+    │                     rejection, Newtonian, Daltonian, Rutherford/
+    │                     Bohr, quantum. ~60 facts with temporal slots
+    │                     and per-era source authority. Demonstrates
+    │                     schema-as-data: the IS_A classification of
+    │                     "atom" changes structurally across eras, not
+    │                     just its properties.
+    │                     KEY DATA: _RAW_FACTS, ERA_BOUNDARIES
     │
-    └── purify.py         the purification pipeline: OWL conflict
-                          detection → chain-policy resolution →
-                          multi-source corroboration boost (noisy-OR) →
-                          confidence-threshold pruning → marker cleanup.
-                          Bundled stress-test suite (6 scenarios).
-                          KEY FUNCS: purify, corroborate, prune_below
+    └── analyse.py        diachronic analyzer: per-era snapshots,
+                          schema-drift detection, property-reversal
+                          tracking (e.g., "indivisible" affirmed for
+                          2,000 years then rejected post-Rutherford),
+                          vocabulary-drift measurement. Embeds prose
+                          on why this matters for knowledge representation
+                          and why LLMs struggle with the historical
+                          structure. Bundled stress-test suite
+                          (5 scenarios).
+                          KEY FUNCS: main, _stress_test
 ```
 
 ---
@@ -944,6 +966,7 @@ python src/git_rag/reason.py           # structured reasoning over Git docs
 python src/distill/purify.py           # knowledge distillation + 6 stress tests
 python src/kb/ontology_owl.py          # HermiT DL reasoning + 7 stress tests
                                        #   (skips gracefully without owlready2 / Java)
+python src/diachronic/analyse.py       # changing-patterns-of-thinking + 5 stress tests
 ```
 
 Three assertion-backed stress suites pin engine properties:
@@ -981,6 +1004,13 @@ Three assertion-backed stress suites pin engine properties:
   intersection inference, disjoint-class inconsistency detection,
   someValuesFrom inference, and per-call World isolation. Skips
   gracefully if owlready2 or Java are unavailable.
+
+- `diachronic/analyse.py:_stress_test` — five scenarios verifying the
+  changing-patterns-of-thinking analysis: multi-era corpus coverage,
+  per-era schema-drift detection (distinct IS_A class sets), the
+  affirmed-then-rejected trajectory for the "indivisible" property,
+  temporal scoping preventing classification flattening, and
+  vocabulary drift across eras.
 
 If any assertion fails, the script exits non-zero — that's the
 regression signal.
