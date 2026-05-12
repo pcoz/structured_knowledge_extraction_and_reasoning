@@ -241,63 +241,96 @@ roles). AMR builds per-sentence semantic graphs.
 CYC has been built since the 1980s with millions of curated facts.
 OWL is the W3C standard for description-logic ontologies.
 
-**What they do well**:
-- **Inference power**: full FOL theorem proving, defeasible
-  reasoning, contradiction handling
-- Rich type system (transitive, symmetric, inverse relations)
-- Decades of work on common-sense knowledge representation
-- Auditability is automatic — every assertion is explicit
+CYC is the closest architectural relative to this project — both
+reject "LLM-as-database" in favour of an inspectable, hand-curatable,
+formally-reasonable knowledge artifact. As the inference plumbing
+in this project has matured, the meaningful comparison has shifted:
+not "what can each do?" but "where do their architectures actually
+sit relative to each other?" The three tables below frame that.
 
-**Where they fall short**:
-- **Construction cost**: CYC took 30+ years of hand-curation. Doesn't
-  scale to general-purpose knowledge without a different approach.
-- **Brittleness with fuzzy domains**: formal logic struggles with
-  natural-language ambiguity, context-dependence, and
-  defeasible reasoning.
-- **No text integration**: CYC and OWL ontologies are separate
-  artifacts from the source text. No native rendering or extraction.
+### What's now matched
 
-**How this project differs**:
-- Construction uses modern AI for the extraction work that CYC had
-  to do by hand. Same destination (a curated structured KB),
-  different path.
-- **Inference power**: Horn-clause forward chaining run to fixpoint,
-  with declarative disjunctive rules and stratified negation-as-failure
-  for absence-checking under the closed-world assumption. A
-  compile-to-rules OWL DSL (`src/kb/ontology.py`) covers class
-  hierarchies, sub-properties, transitive / symmetric / inverse /
-  functional / inverse-functional properties, equivalent and
-  disjoint classes, and domain/range — most of practical OWL usage
-  without an external DL reasoner.
-- **Temporal reasoning**: optional `valid_from` / `valid_to` slots
-  on every triple. The full Allen interval algebra (13 atomic
-  relations + composition table) ships in `src/kb/temporal.py`.
-  The engine propagates temporal validity through derivation chains
-  by intersecting input intervals; temporally inconsistent inputs
-  silently suppress the derivation.
-- **Confidence / uncertainty**: optional confidence slot on every
-  triple, propagated through derivations via noisy-AND (default),
-  noisy-OR, min, or a caller-supplied combiner. Interpretation
-  (probabilistic, fuzzy, subjective-Bayesian) is the caller's choice.
-- **Conflict resolution**: `src/kb/conflict.py` detects functional /
-  inverse-functional / disjoint-class violations and resolves them
-  via pluggable policies (latest-wins, highest-confidence,
-  authority-wins, surface-for-review, or a composed chain). Runs at
-  construction time; the shipped artifact is pre-resolved.
-- Simpler than full OWL DL (no description-logic subsumption, no
-  cardinality restrictions, no full FOL theorem proving, no
-  open-world semantics, no higher-order logic, no microtheories)
-  but easier to extend.
-- Native text integration: the KB and the source text are
-  bidirectionally linked.
-- Trade-off: smaller ontology than CYC; less formal-logic power
-  than OWL.
+| CYC capability | This project's equivalent |
+|---|---|
+| Class hierarchies, subsumption, equivalence, disjointness | OWL DSL: `subclass_of`, `equivalent_classes`, `disjoint_with`. Transitive subclass closure via fixpoint. |
+| Property characteristics (transitive, symmetric, inverse, functional, inverse-functional, sub-property) | All seven implemented in `src/kb/ontology.py`. Compiler emits rules into the same engine. |
+| Domain / range typing | `ontology.domain(...)`, `ontology.range(...)` — compiled rules emit `IS_A` facts. |
+| Forward-chaining inference over rules | `apply_all_rules_to_fixpoint` with stratified semantics. |
+| Per-fact provenance | Every Triple carries `source_article` + `source_sentence_idx`; every Derivation carries rule + inputs + "since X therefore Y" explanation. **Stronger** than CYC here — sentence-level vs CYC's microtheory-level. |
+| Temporal reasoning | Full Allen interval algebra (13 relations + composition + inversion) in `src/kb/temporal.py`. Engine propagates intervals through derivation chains. |
+| Confidence / certainty tracking | Confidence slot on every triple; noisy-AND/OR/min combinators; engine propagation automatic. |
+| Contradiction detection | Functional / inverse-functional / disjoint-class axioms surface `CONFLICT_*` markers. |
+| Conflict resolution | Six pluggable policies (Authority, Latest, HighestConfidence, KeepAll, SurfaceForReview, Chain). CYC's microtheory-based resolution and our policy-based resolution achieve similar outcomes through different means. |
+| Knowledge curation / purification | `src/distill/` suite — full noisy-in-clean-out pipeline. CYC has this only as a manual editorial process; ours is programmable. |
+
+### What CYC still has that we don't
+
+| CYC capability | Why we can't match without new machinery |
+|---|---|
+| **Higher-order logic** (predicates over predicates, predicates as arguments) | Our schema is first-order Datalog. Real HOL needs a different rule language. |
+| **Microtheories / context logic** | Facts holding in some contexts but not others. We have no first-class "context" slot — facts are global. Temporal scoping is the closest analogue but it's one specific kind of context. General microtheories are their own architectural change. |
+| **Defeasible reasoning with explicit defaults** | "Birds fly, unless penguin" with proper override semantics. We can approximate via stratification (override rule at stratum 1) but not cleanly. CYC has it as a first-class construct. |
+| **Modal operators beyond time** (knows / believes / desires) | We have temporal modality only. Epistemic and doxastic modality aren't represented. |
+| **~25 million curated common-sense assertions** | CYC's actual KB content. We have demo-scale data plus the 1000-article Wikipedia slice. The architectural bet — that modern AI extraction closes this gap — remains an open hypothesis at scale. |
+| **Production-grade theorem prover** | Decades of optimisation on real workloads. Our engine is small, clean, and 38-assertion-tested but not industrially battle-hardened. |
+| **Cardinality / complex class restrictions** (full OWL DL) | `min/maxCardinality`, `someValuesFrom` under open-world semantics. We have the closed-world subset; full DL needs an external reasoner like HermiT. |
+
+### What we now have that CYC doesn't
+
+| Our capability | Why this matters |
+|---|---|
+| **Per-sentence textual provenance** | CYC tracks microtheory; we track the exact source sentence. Stronger audit trail. |
+| **Bidirectional structure ↔ text** | CYC's KB is divorced from prose. Ours can render structured facts back to natural language via the cell-grammar layer. |
+| **Inspectable, plain-text JSON artifact** | Open in a text editor, grep it, diff it. CYC's runtime form is harder to spot-check. |
+| **Sub-millisecond serving with no runtime AI/network** | CYC's reasoner is meant for query-time inference. Ours separates construction from serving — runtime is dictionary lookups. |
+| **Edge-deployable, stdlib-only runtime** | CYC needs the CYC runtime. We need Python. |
+| **Cross-domain demonstrated** | Wikipedia, Moby-Dick utterance corpus, Git docs, astronomical multi-source purification — same engine, four shapes. CYC is one big general-purpose KB. |
+| **Programmable distillation pipeline** | Noisy multi-source corpus → clean canonical KB in one orchestrated call (`apply_with_conflict_resolution`). CYC has manual editorial processes. |
+| **Allen interval algebra as a first-class primitive** | Standard temporal formalism, exposed as named predicates + composition table. CYC has temporal reasoning but its representation is more ad hoc and the algebra isn't surfaced as cleanly. |
+| **38 assertion-backed stress scenarios across four test suites** | Pinning engine properties. Reproducibility check is `python src/kb/reason.py && python src/kb/ontology.py && python src/kb/conflict.py && python src/distill/purify.py`. |
+
+### Where the gap actually sits now
+
+The **inference machinery gap** has narrowed to three things: higher-
+order logic, microtheories, and defeasibility. Those are deep
+semantic features, not just plumbing — closing each is a real
+architectural project.
+
+The **knowledge volume gap** is unchanged. CYC has 25M curated
+assertions; we have tens of thousands. The architectural bet — that
+modern AI as a construction-time extractor closes this at scale —
+remains an open hypothesis, not a demonstrated outcome.
+
+The **production maturity gap** is also unchanged. Different points
+on the curve: CYC is industrially battle-hardened; ours is small,
+clean, deterministic, and assertion-tested.
+
+What's *new* is that we now have **operational primitives CYC
+doesn't focus on**: deterministic conflict resolution as a first-
+class pipeline step, Allen algebra exposed as the temporal API,
+programmable distillation of noisy corpora, and per-sentence
+provenance throughout. These aren't substitutes for CYC's strengths
+— they're capabilities that emerge from the "AI extracts,
+deterministic code serves" architectural bet, and they're things
+CYC-the-product doesn't have because CYC was designed for a
+different problem (handcrafted common-sense reasoning over a single
+big KB) than we're designed for (programmable multi-source knowledge
+processing across diverse corpora).
+
+One-line summary: **CYC is deeper in inference and content; we're
+broader in pipeline mechanics and cleaner in the construction-time /
+serve-time split.** The architectures aren't converging — they're
+occupying different positions in the same design space, and what's
+narrowed is the gap on the dimensions where they overlap.
 
 **Could be combined**: this project's KB could be exported as OWL
 for use with formal reasoners. OWL inference (description-logic
-subsumption, transitive/symmetric/inverse-property axioms) could
-augment the Horn + disjunctive + stratified-negation rules already
-in `src/kb/reason.py`.
+subsumption, transitive/symmetric/inverse-property axioms beyond
+what our DSL already covers, cardinality restrictions) could augment
+the Horn + disjunctive + stratified-negation rules already in
+`src/kb/reason.py`. CYC-style microtheories could be added as a
+context slot on the Triple schema — that's a separable extension
+the current architecture would accept cleanly.
 
 ---
 
