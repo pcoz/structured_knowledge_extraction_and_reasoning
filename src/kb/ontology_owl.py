@@ -384,10 +384,24 @@ def hermit_enrich(
 
     onto, names, individuals, owl_classes = _build_owl_world(ontology, kb)
 
-    # Snapshot pre-reasoning class memberships so we can diff after.
+    # Snapshot the EXPLICITLY-asserted class memberships per individual.
+    # After reasoning, we'll compare against `INDIRECT_is_a` (which
+    # includes both explicit and inferred memberships) to identify
+    # which classes were newly inferred. Using `is_a` here is correct
+    # — it captures only what we put in, before any inference.
     pre_classes: dict[str, set[str]] = {}
     for ext_name, ind in individuals.items():
         pre_classes[ext_name] = {c.name for c in ind.is_a}
+
+    # Assert AllDifferent over all individuals so that OWL's open-world
+    # default (where two named individuals MIGHT be the same unless
+    # `differentFrom` is asserted) doesn't let HermiT trivially
+    # satisfy cardinality constraints by identifying named individuals
+    # with each other. This is the unique-name-assumption posture most
+    # callers expect: distinct names mean distinct things.
+    if len(individuals) >= 2:
+        with onto:
+            or2.AllDifferent(list(individuals.values()))
 
     info: dict = {"consistent": True, "reasoner": reasoner, "n_inferred": 0}
     derivations: list[Derivation] = []
@@ -427,13 +441,16 @@ def hermit_enrich(
         ) from e
 
     # Diff: any class membership now present that wasn't before is an
-    # inference. We deliberately ignore owl:Thing (every individual
-    # is a Thing — it's not informative).
+    # inference. owlready2 exposes the full (asserted + inferred)
+    # class set as `INDIRECT_is_a`; the explicit set lives in `is_a`.
+    # We ignore owl:Thing (every individual is a Thing — uninformative).
     seen_kb_triples = {
         (t.subject, t.relation, t.object) for t in kb.triples
     }
     for ext_name, ind in individuals.items():
-        post = {c.name for c in ind.is_a}
+        # INDIRECT_is_a includes inferred superclasses; that's the
+        # closure we want to mine for new memberships.
+        post = {c.name for c in ind.INDIRECT_is_a}
         new_classes = post - pre_classes[ext_name]
         for cls_name in new_classes:
             if cls_name == "Thing":
