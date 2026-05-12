@@ -1,4 +1,4 @@
-# Architecture
+# SKEAR — Architecture
 
 > **See also**: [README](../README.md) ·
 > [DEVELOPER_GUIDE](DEVELOPER_GUIDE.md) ·
@@ -7,9 +7,12 @@
 > [NOVELTIES](NOVELTIES.md) ·
 > [LICENSE](../LICENSE.md)
 
-A pipeline that takes unstructured text in and produces a queryable,
-inspectable, deductively reasonable, hallucination-free knowledge
-graph.
+SKEAR (**S**tructured **K**nowledge **E**xtraction **A**nd
+**R**easoning) is a pipeline that takes unstructured text in and
+produces a queryable, inspectable, deductively reasonable,
+hallucination-free knowledge graph — with optional AI augmentation
+at construction time for extraction and curation, and no AI in the
+loop at query time.
 
 ## The three layers
 

@@ -1,4 +1,4 @@
-# Release Notes
+# SKEAR — Release Notes
 
 > **See also**: [README](README.md) ·
 > [docs/ARCHITECTURE](docs/ARCHITECTURE.md) ·
@@ -14,6 +14,19 @@ Datetime-stamped record of significant work. Times are local
 ---
 
 ## 2026-05-12
+
+### Project name: SKEAR
+
+The project now goes by SKEAR (Structured Knowledge Extraction And
+Reasoning) — a short, pronounceable acronym derived from the full
+name. The repository slug remains
+`structured_knowledge_extraction_and_reasoning`; only the doc-
+visible naming changed.
+
+The acronym foregrounds the architectural posture the docs already
+described: AI optionally augments construction (extraction,
+curation, OWL DL reasoning via the HermiT adapter), and no AI is in
+the loop at query time. README and every doc heading were updated.
 
 ### HermiT (OWL DL) integration shipped
 

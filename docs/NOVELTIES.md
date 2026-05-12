@@ -1,4 +1,7 @@
-# Novelties — what's architecturally different
+# SKEAR — Novelties
+
+What's architecturally different about SKEAR (Structured Knowledge
+Extraction And Reasoning).
 
 > **See also**: [README](../README.md) ·
 > [ARCHITECTURE](ARCHITECTURE.md) ·
