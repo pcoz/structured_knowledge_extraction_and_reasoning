@@ -282,10 +282,11 @@ architecture provides.
 | Interaction-type compact selectors | 8 sentences, ~5% bit-cost reduction | corpus-scale empirical distributions; arithmetic coder integration |
 | Causal state tracking | 11 hand rules + an OWL DSL (transitive / symmetric / inverse / functional / inverse-functional, sub-class / sub-property, equivalent / disjoint, domain / range) over 1000-article KB; fixpoint dispatch with stratified negation-as-failure and disjunctive rules; 32 stress-test scenarios across three suites | richer rule library; semi-naive evaluation for scale |
 | Bidirectional byte-exact | 17/17 phenocryst sentences + 25/25 full article | groundmass byte-exactness via trained LM |
-| Provenance + reasoning + generation | 6 working interfaces (3 query + 3 cross-domain reasoners over Wikipedia, Moby-Dick, Git docs) | production-grade extraction at 100M-article scale |
+| Provenance + reasoning + generation | 10 working interfaces (3 query + 5 cross-domain reasoners over Wikipedia, Moby-Dick, Git docs, multi-source distillation, diachronic analysis — plus the HermiT adapter as an optional 6th) | production-grade extraction at 100M-article scale |
 | Temporal validity | Full Allen interval algebra (13 atomic relations + composition table); engine propagates intervals through derivation chains | constraint propagation (AC-3) over Allen networks at scale |
 | Uncertainty | Confidence slot on every triple; noisy-AND / noisy-OR / min / pluggable combiners; engine propagates through derivations | full probabilistic Datalog (ProbLog-style inclusion-exclusion) |
 | Conflict resolution | Six policies (LatestWins / HighestConfidence / AuthorityWins / KeepAll / SurfaceForReview / ChainPolicy) over OWL-detected violations | per-tenant authority models; reviewer-UI integration |
+| Schema-as-data / multi-framing preservation | Atom across 2,500 years of natural philosophy in `src/diachronic/`: 6 paradigms with distinct IS_A classifications, the famous indivisibility reversal queryable as a structural event, 5 assertion-backed scenarios | scope axes beyond temporal (ideology, methodology, school of thought, legal perspective, cultural tradition) implemented as the same mechanism; tooling for browsing the framing graph |
 
 The architecture is concrete and implementable at small scale. The
 production-scale validation requires AI-driven extraction at 100M+
