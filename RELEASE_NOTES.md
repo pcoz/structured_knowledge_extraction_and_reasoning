@@ -13,6 +13,85 @@ Datetime-stamped record of significant work. Times are local
 
 ---
 
+## 2026-05-12
+
+### Reasoning-engine extension
+
+Extended `src/kb/reason.py` beyond single-pass Horn to cover the three
+capabilities flagged as missing in the CYC comparison
+(`docs/COMPARISONS.md`):
+
+- **Fixpoint iteration** via `apply_all_rules_to_fixpoint`. Rules run
+  in ascending stratum order; within each stratum, iteration
+  continues until no new facts are derived. Includes a divergence
+  guard that raises `RuntimeError` rather than silently truncating
+  at `max_iter`.
+- **Disjunctive rules** via the new `DisjunctiveRule` dataclass —
+  declarative form for the "alternative antecedent relations, one
+  consequent" pattern. Compiles to a standard `Rule`.
+- **Stratified negation-as-failure** via the `kb_has` helper and the
+  `stratum` field on `Rule`. Rules at stratum ≥ 1 see only the
+  closure of lower strata, keeping the result deterministic despite
+  negation being non-monotonic. Arbitrary stratum depths supported.
+
+Rules added: R8 transitive intellectual descent, R9 disjunctive
+`INFLUENCED_BY` (`TUTORED_BY ∪ INTELLECTUAL_DESCENDANT_OF`), R10
+stratified `FAMILY_PROGENITOR`, R11 descent-extension bridge
+(introduced after stress-test scenario 1 caught a transitive-closure
+gap in R1 + R8 alone).
+
+### Stress-test suite
+
+Added `stress_test()` to `src/kb/reason.py`: 10 assertion-backed
+synthetic scenarios covering deep chains, cycles, empty KB, alias
+variants, ordering invariance, determinism, divergence detection,
+multi-stratum dispatch. Five bugs caught and fixed:
+
+- R1 + R8 alone underdetermine transitive IDO closure on chains
+  longer than 3 (fixed with R11).
+- `kb_has` did not canonicalise its subject (fixed).
+- `r10_progenitor` could emit duplicate progenitors via alias
+  variants (fixed by canonicalising the parent before dedupe).
+- Stratum ≥ 2 silently ignored by the hardcoded 0/1 dispatcher
+  (fixed by generalising to all strata in ascending order).
+- No divergence guard — runaway rules would silently truncate at
+  `max_iter` (fixed with a `for…else` raise).
+
+### Cross-domain reasoners
+
+Two new files demonstrating that the same engine generalises across
+data shapes without modification:
+
+- `src/ahab/reason.py` — applies the engine to the 35-utterance
+  Moby-Dick corpus. Theme co-occurrence and transitive thematic
+  reach (fixpoint over 4 rounds, 552 derivations), `HAS_SPEECH_LABEL`
+  unifying speech-act ∪ mood (`DisjunctiveRule`), confrontational vs
+  introspective classification (function-form disjunction over
+  object values), peaceful-addressee derivation (negation over a
+  derived predicate — `self` and `other captain` qualify).
+- `src/git_rag/reason.py` — applies the engine to the 37-item Git
+  knowledge base. Transitive `RELATED_TO` closure for multi-hop
+  topic navigation, `NEEDS_OPERATOR_ATTENTION` via
+  `HAS_CAUTION ∪ USES_DESTRUCTIVE_COMMAND` (`DisjunctiveRule`),
+  `RECOVERY_OPERATION` classification, `SAFE_TO_AUTOMATE`
+  (negation-as-failure over the derived attention flag — 21 items
+  qualify).
+
+### Documentation
+
+- `docs/COMPARISONS.md`: CYC inference-power bullet rewritten to
+  reflect the engine's actual capability set (fixpoint + disjunction
+  + stratified negation, no DL subsumption, no full FOL).
+- `docs/ARCHITECTURE.md`: glossary entries added for *Fixpoint*,
+  *Stratified Negation*, *Disjunctive Rule*; Layer-2 inference
+  description updated to reflect fixpoint dispatch.
+- `docs/DEVELOPER_GUIDE.md`: rule-adding recipes use the `Rule`
+  dataclass; new recipes for `DisjunctiveRule` and
+  negation-as-failure; code map extended with the new reasoner
+  files; testing section notes the stress-test suite.
+
+---
+
 ## 2026-05-11
 
 ### Upstream research (source research repository) — 12:48 – 15:00

@@ -82,8 +82,9 @@ final answer.
 - Rendering is deterministic — no LLM in the synthesis path.
   Responses are the retrieved record formatted with provenance,
   not generated text.
-- Inference is Horn-clause rules with full proof trees, not LLM
-  chain-of-thought.
+- Inference is Horn-clause rules (plus declarative disjunctive
+  rules and stratified negation-as-failure) run to fixpoint, with
+  full proof trees — not LLM chain-of-thought.
 - Trade-off: less fluent natural prose in responses; gain is full
   auditability.
 
@@ -241,7 +242,8 @@ CYC has been built since the 1980s with millions of curated facts.
 OWL is the W3C standard for description-logic ontologies.
 
 **What they do well**:
-- Formal reasoning with strong guarantees
+- **Inference power**: full FOL theorem proving, defeasible
+  reasoning, contradiction handling
 - Rich type system (transitive, symmetric, inverse relations)
 - Decades of work on common-sense knowledge representation
 - Auditability is automatic — every assertion is explicit
@@ -259,16 +261,22 @@ OWL is the W3C standard for description-logic ontologies.
 - Construction uses modern AI for the extraction work that CYC had
   to do by hand. Same destination (a curated structured KB),
   different path.
-- Inference is Horn clauses only (simpler than OWL's full
-  description-logic but easier to extend).
+- **Inference power**: Horn-clause forward chaining run to fixpoint,
+  with declarative disjunctive rules and stratified negation-as-failure
+  for absence-checking under the closed-world assumption. Simpler than
+  OWL's full description-logic (no description-logic subsumption, no
+  full FOL theorem proving) but covers transitive closure, disjunctive
+  antecedents, and absence — and is easier to extend.
 - Native text integration: the KB and the source text are
   bidirectionally linked.
 - Trade-off: smaller ontology than CYC; less formal-logic power
   than OWL.
 
 **Could be combined**: this project's KB could be exported as OWL
-for use with formal reasoners. OWL inference could augment the
-Horn-clause rules.
+for use with formal reasoners. OWL inference (description-logic
+subsumption, transitive/symmetric/inverse-property axioms) could
+augment the Horn + disjunctive + stratified-negation rules already
+in `src/kb/reason.py`.
 
 ---
 
@@ -347,7 +355,7 @@ mentions.
 | Edge-deployable | partial | no | no | partial | n/a | n/a | yes | partial | **yes** |
 | Construction effort | low | medium (LLM) | training | huge (curation) | low (auto) | huge (curation) | huge | low | medium (curate or AI-extract) |
 | Open vocabulary | yes | yes | yes | partial | yes | no | no | n/a | partial |
-| Formal reasoning | no | weak | no | weak | no | no | yes (DL) | weak | yes (Horn) |
+| Formal reasoning | no | weak | no | weak | no | no | yes (DL) | weak | **yes (Horn + disjunction + stratified negation, fixpoint)** |
 
 ---
 
