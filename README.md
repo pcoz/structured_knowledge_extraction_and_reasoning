@@ -315,7 +315,12 @@ command each. The technical reader will find the details in
   to vector RAG, knowledge graphs, LLM-as-database, and other
   alternatives.
 - **[docs/NOVELTIES.md](docs/NOVELTIES.md)** — what this contributes
-  that isn't standard in the field.
+  that isn't standard in the field. Closes with a substantial
+  "What SKEAR contributes to the field of knowledge representation"
+  section positioning SKEAR against the 60-year history of KR
+  (frame systems → Cyc → OWL → knowledge graphs → vector RAG →
+  LLM-as-KB) and articulating the architectural bet for KR in the
+  LLM era.
 - **[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)** — for
   engineers: code map, data model, API reference, recipes for
   extension.
