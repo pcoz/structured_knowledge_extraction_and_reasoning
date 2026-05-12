@@ -29,15 +29,26 @@ class Triple:
 
 @dataclass
 class KB:
+    # The serialised state — what gets read from / written to the
+    # JSON artifact. Everything below is rebuilt at construction time.
     triples: list[Triple]
     alias_map: dict[str, str]
     n_articles: int
 
+    # Adjacency indexes built in __post_init__. Index by entity for
+    # O(1) neighbour lookups and BFS traversal. Each entry stores
+    # (relation, other_entity, triple_idx) so callers can recover the
+    # full Triple by indexing back into self.triples — saves memory
+    # vs storing the Triple itself in every adjacency entry.
     out_edges: dict[str, list] = field(default_factory=lambda: defaultdict(list))
     in_edges: dict[str, list] = field(default_factory=lambda: defaultdict(list))
     by_relation: dict[str, list[int]] = field(default_factory=lambda: defaultdict(list))
 
     def __post_init__(self):
+        # Single pass over triples populates all three indexes. Called
+        # automatically by the dataclass after __init__, and re-runs
+        # whenever the reasoner constructs a new KB with extended
+        # triples — that's how derived facts become queryable.
         for idx, t in enumerate(self.triples):
             self.out_edges[t.subject].append((t.relation, t.object, idx))
             self.in_edges[t.object].append((t.relation, t.subject, idx))
@@ -88,17 +99,28 @@ class KB:
     def find_paths(
         self, start: str, end: str, max_hops: int = 4, max_paths: int = 5,
     ) -> list[list[Triple]]:
-        """BFS from start to end (edges undirected for connectivity)."""
+        """BFS from start to end (edges undirected for connectivity).
+
+        Treats the graph as undirected — both out_edges and in_edges are
+        followed at each hop. This matches user intent for "how are X
+        and Y connected?" where the answer reads naturally as a chain
+        regardless of the relation direction at each link."""
         start = self.canonicalize(start)
         end = self.canonicalize(end)
         if start == end:
             return [[]]
         results: list[list[Triple]] = []
+        # `visited` prevents revisiting an entity. Standard BFS — but
+        # note we don't visit `end` itself, so multiple distinct paths
+        # to `end` can still be discovered.
         visited = {start}
         frontier = [(start, [])]
         for _hop in range(max_hops):
             next_frontier = []
             for current, path in frontier:
+                # Forward edges first, then incoming — when we report
+                # results, the relation arrows in fmt_path will reflect
+                # which direction we traversed.
                 for rel, obj, idx in self.out_edges.get(current, []):
                     t = self.triples[idx]
                     if obj == end:
@@ -117,6 +139,8 @@ class KB:
                     elif subj not in visited:
                         visited.add(subj)
                         next_frontier.append((subj, path + [t]))
+            # Return early at the first hop that produced results so
+            # we don't keep expanding past the shortest-path layer.
             if results:
                 return results
             frontier = next_frontier
@@ -146,10 +170,20 @@ class KB:
 
 
 def fmt_path(path: list[Triple]) -> str:
+    """Render a Triple chain as an arrow string.
+
+    Each relation arrow points in the direction the relation was
+    originally stated, regardless of which direction the BFS
+    traversal followed. `Aristotle --TUTORED_BY--> Plato` reads the
+    same way whether we walked the path Aristotle→Plato or
+    Plato→Aristotle."""
     if not path:
         return "(empty path)"
     nodes = [path[0].subject]
     for t in path:
+        # Whether we're moving forward or backward through this edge
+        # depends on whether the previous node matches the current
+        # triple's subject or object — that determines arrow direction.
         if nodes[-1] == t.subject:
             nodes.append(t.object)
             nodes[-2] = f"{nodes[-2]} --{t.relation}--> "

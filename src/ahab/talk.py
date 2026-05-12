@@ -138,18 +138,30 @@ def score_utterance(
     u: Utterance, question_themes: list[str], preferred_moods: list[str],
     already_used: set[str],
 ) -> float:
-    """Score an utterance by theme overlap + mood bonus + freshness."""
+    """Score an utterance by theme overlap + mood bonus + freshness.
+
+    Weights are hand-tuned for the 35-utterance corpus. The
+    -100 freshness penalty is meant to effectively eliminate any
+    already-used utterance regardless of how well it matches —
+    repetition kills the illusion of conversation more than
+    a slightly worse second-choice answer does."""
     score = 0.0
-    # Theme overlap (Jaccard-style with bonus for direct hits)
+    # Theme overlap dominates: 3 points per matched theme. Themes are
+    # the primary semantic signal and most utterances have 3-5 themes,
+    # so a 2- or 3-theme overlap easily beats other bonuses.
     theme_overlap = set(u.themes) & set(question_themes)
     score += 3.0 * len(theme_overlap)
-    # Mood preference
+    # Mood preference is a tiebreaker between similarly-themed
+    # utterances — weighted lower than even a single theme match.
     if u.mood in preferred_moods:
         score += 1.5
-    # Freshness penalty if we've already used this utterance
+    # Freshness penalty large enough to effectively exclude reused
+    # utterances even when nothing else matches.
     if u.text in already_used:
         score -= 100.0
-    # Bias slightly toward longer, more substantive utterances
+    # Length bias: longer utterances tend to be more substantive, but
+    # cap the bonus at 2.0 so a very long quote doesn't crowd out a
+    # better-themed shorter one.
     score += min(2.0, len(u.text) / 200)
     return score
 
@@ -157,6 +169,12 @@ def score_utterance(
 def best_utterance(
     question: str, history: list[Utterance],
 ) -> Utterance | None:
+    """Pick the highest-scoring utterance, or None for off-topic questions.
+
+    The `> 0` threshold filters out the case where nothing meaningfully
+    matches — better to return a "Ahab speaks not of such matters"
+    fallback than to surface an irrelevant quote with a misleadingly
+    confident chapter citation."""
     themes = extract_themes(question)
     moods = extract_preferred_mood(question)
     already_used = {u.text for u in history}

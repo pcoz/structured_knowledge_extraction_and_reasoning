@@ -121,7 +121,12 @@ STOPWORDS = {
 
 
 def _stem(token: str) -> str:
-    """Crude plural-stripping stem so 'tags' matches 'tag'."""
+    """Crude plural-stripping stem so 'tags' matches 'tag'.
+
+    Length guards (len > 3/4) avoid stemming very short words like
+    'is' (which would become 'i') or 'gas' (which would become 'ga').
+    Not a Porter stemmer — we only need plural folding because that's
+    the most common false-mismatch in this corpus."""
     if token.endswith("ies") and len(token) > 4:
         return token[:-3] + "y"                              # categories → category
     if token.endswith("es") and len(token) > 3 and token[-3] in "ssx":
@@ -150,16 +155,24 @@ def score_item(item: KnowledgeItem, query: str, intent: str,
     are differentiated by which one has more *distinctive* token
     overlap (e.g., "rename" appearing in question patterns is a
     stronger signal than "branch" alone).
+
+    We take the MAX phrase-pattern score across an item's
+    question_patterns (not sum), so an item isn't penalised for having
+    many paraphrases — only the best-matching one counts.
     """
     score = 0.0
     q_tokens = _content_tokens(query)
     q_lower = query.lower()
 
-    # Topic match (modest signal — most queries match SOMETHING by topic).
+    # Topic match: modest 3-point signal. Most well-formed queries
+    # touch some topic; topic alone is rarely enough to distinguish
+    # between items, so the weight here is bounded.
     if item.topic in topics:
         score += 3.0
 
-    # Intent match
+    # Intent match (how-to vs what-is vs compare): smaller signal
+    # because intent is mostly inferable from sentence shape and
+    # routes coarsely.
     if item.intent == intent:
         score += 1.0
 
@@ -172,15 +185,19 @@ def score_item(item: KnowledgeItem, query: str, intent: str,
         p_lower = pattern.lower()
         p_tokens = _content_tokens(p_lower)
         overlap = p_tokens & q_tokens
-        # Score per overlapping token, weighted higher than the prior
-        # version since topic-match weight was reduced.
+        # 3 points per overlapping content token — the discriminative
+        # signal we lean on most.
         phrase_score = 3.0 * len(overlap)
-        # Substring containment — very strong signal.
+        # Whole-pattern substring match is the strongest signal we
+        # have: +15 dominates almost everything else and routes to
+        # the canonical answer when the user phrases the question
+        # close to verbatim.
         if p_lower in q_lower:
             phrase_score += 15.0
-        # Partial-substring: any 3+-word run of the pattern present
-        # in the query.
         else:
+            # Trigram-fallback: any 3-consecutive-word window of the
+            # pattern present in the query — catches paraphrases that
+            # share a key phrase but differ in tense or articles.
             p_words = p_lower.split()
             for i in range(len(p_words) - 2):
                 trigram = " ".join(p_words[i : i + 3])
