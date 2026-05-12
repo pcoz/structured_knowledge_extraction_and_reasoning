@@ -15,6 +15,88 @@ Datetime-stamped record of significant work. Times are local
 
 ## 2026-05-12
 
+### HermiT (OWL DL) integration shipped
+
+Pattern A from `docs/COMPARISONS.md` (CYC / OWL DL section), made
+real. A construction-time enricher that translates our `Ontology` +
+`KB` into OWL/RDF, invokes a real description-logic reasoner (HermiT
+by default, Pellet alternative via `owlready2`), and converts
+inferred facts back to our `Triple` / `Derivation` shape. Runtime is
+unchanged — the shipped artifact is still pure JSON.
+
+**Soft dependencies** — adapter loads cleanly without them and
+raises actionable errors only when invoked:
+  - `owlready2` (Python, `pip install owlready2`)
+  - Java JVM (system, OpenJDK 17 recommended)
+
+**What HermiT adds** (over the existing compile-to-rules backend):
+  - Cardinality restrictions (`min/max/exactCardinality` axioms,
+    qualified or unqualified).
+  - Complex class expressions (intersection, union, complement,
+    someValuesFrom, allValuesFrom).
+  - Full DL classification — inferred class hierarchies that
+    closed-world Horn rules can't compute.
+  - Inconsistency detection — HermiT throws on unsatisfiable
+    axioms + ABox; we catch and surface as `CONTRADICTION_DETECTED`.
+
+**Ontology DSL extensions** (`src/kb/ontology.py`):
+  - `.cardinality(prop, exactly=N, min=N, max=N, of=ClassName)`
+  - `.class_intersection(name, *parts)`
+  - `.class_union(name, *parts)`
+  - `.class_complement(name, of)`
+  - `.class_some_values(name, prop, target)`
+  - `.class_all_values(name, prop, target)`
+
+These methods are captured by the `Ontology` dataclass but
+deliberately not compiled by `ontology_rules.py` — they require
+open-world DL semantics and are consumed exclusively by
+`ontology_owl.hermit_enrich`.
+
+**Adapter implementation** (`src/kb/ontology_owl.py`, ~480 LoC):
+  - Translation layer: classes, properties, axioms, individuals.
+  - Bidirectional name sanitisation (entities with spaces /
+    punctuation / Unicode → valid Python identifiers → original
+    names restored on the way back).
+  - Per-call `owlready2.World()` for namespace isolation across
+    successive invocations.
+  - `AllDifferent` asserted by default (unique-name posture) so
+    cardinality constraints aren't trivially satisfied by name
+    coalescing.
+  - `INDIRECT_is_a` used to read inferences (vs the asserted
+    `is_a`).
+  - Public API: `hermit_enrich(kb, ontology) → (kb, derivs, info)`
+    and `hermit_rule(ontology, stratum=5)` for engine integration.
+
+**Seven assertion-backed stress scenarios** in
+`src/kb/ontology_owl.py:_stress_test()`, verified against the real
+HermiT reasoner on a t3.medium EC2:
+  1. Subclass-chain DL classification.
+  2. Cardinality violation (4 vertices vs exactly=3 → inconsistent).
+  3. Cardinality satisfied.
+  4. Class intersection inference.
+  5. Disjoint-class inconsistency.
+  6. someValuesFrom inference.
+  7. Per-call World isolation (no state leak across invocations).
+
+**All four example suites augmented** with optional HermiT sections
+that demonstrate DL-only capability while soft-failing on hosts
+without owlready2 / Java:
+  - `src/kb/reason.py`: ClassicalPhilosopher ≡ Philosopher ⊓
+    AncientGreek; Aristotle and Plato inferred, Descartes correctly
+    excluded.
+  - `src/ahab/reason.py`: ConfrontationalUtterance disjoint with
+    IntrospectiveUtterance; 30 utterances verified consistent.
+  - `src/git_rag/reason.py`: SafeOp disjoint with RiskyOp; 21 + 16
+    items verified coherent.
+  - `src/distill/purify.py`: atemporal Pluto edge case — HermiT
+    proves inconsistency without temporal scoping, validating the
+    main pipeline's temporal-layer design.
+
+**Documentation**: `docs/DEVELOPER_GUIDE.md` (code map + recipe +
+testing section), `docs/ARCHITECTURE.md` (Layer-2 description),
+`docs/COMPARISONS.md` (CYC OWL DL adapter section — "planned" →
+"shipped" + verified capability list).
+
 ### New example suite: knowledge distillation / purification
 
 Added `src/distill/` — a fourth demo suite focused on the canonical
