@@ -1,4 +1,7 @@
-# Use cases — what currently uses LLMs that this can address
+# SKEAR — Use cases
+
+What currently uses LLMs that SKEAR (Structured Knowledge Extraction
+And Reasoning) can address.
 
 > **See also**: [README](../README.md) ·
 > [ARCHITECTURE](ARCHITECTURE.md) ·

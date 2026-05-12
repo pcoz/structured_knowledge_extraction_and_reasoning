@@ -1,8 +1,14 @@
-# Structured Knowledge Extraction and Reasoning
+# SKEAR — Structured Knowledge Extraction And Reasoning
 
 **Answers your customers, regulators, and staff can trust — sourced
 from your own documents, with every claim traceable to the sentence
 it came from.**
+
+*SKEAR* /ˈskɪər/ — a small, deterministic reasoning engine that
+turns unstructured documents into a queryable, inspectable,
+provably-traceable knowledge artifact. Optional AI augmentation at
+construction time (extraction, curation); zero AI in the loop at
+query time.
 
 > **Copyright © Edward Chalk.** The architecture and source code are
 > the original work of Edward Chalk; copyright protection is asserted

@@ -1,4 +1,8 @@
-# Comparisons — how this differs from similar technology
+# SKEAR — Comparisons
+
+How SKEAR (Structured Knowledge Extraction And Reasoning — optional
+AI at construction, zero AI at query time) differs from similar
+technology.
 
 > **See also**: [README](../README.md) ·
 > [ARCHITECTURE](ARCHITECTURE.md) ·

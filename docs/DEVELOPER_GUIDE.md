@@ -1,4 +1,4 @@
-# Developer guide
+# SKEAR — Developer guide
 
 > **See also**: [README](../README.md) ·
 > [ARCHITECTURE](ARCHITECTURE.md) ·
@@ -7,8 +7,8 @@
 > [NOVELTIES](NOVELTIES.md) ·
 > [LICENSE](../LICENSE.md)
 
-Practical reference for working with this codebase: code map, data
-model, API quickref, recipes, performance notes, troubleshooting.
+Practical reference for working with the SKEAR codebase: code map,
+data model, API quickref, recipes, performance notes, troubleshooting.
 
 For the conceptual design see [ARCHITECTURE.md](ARCHITECTURE.md).
 For where this sits relative to similar technology see

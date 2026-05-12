@@ -1,4 +1,4 @@
-# License
+# SKEAR — License
 
 > **See also**: [README](README.md) ·
 > [docs/ARCHITECTURE](docs/ARCHITECTURE.md) ·
@@ -9,7 +9,8 @@
 
 **Copyright © Edward Chalk.** All rights reserved.
 
-The architecture — including the structured-extraction → indexing →
+SKEAR (Structured Knowledge Extraction And Reasoning) — the
+architecture, including the structured-extraction → indexing →
 inference → serving pipeline; the cell-grammar with shape × context
 × flavour decomposition; the interaction-type compact-selector
 encoding; the bidirectional structure ↔ text mapping; the causal
