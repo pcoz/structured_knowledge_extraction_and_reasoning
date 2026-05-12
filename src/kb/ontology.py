@@ -101,6 +101,36 @@ class Ontology:
     range_constraints: dict[str, str] = field(default_factory=dict)
 
     # ------------------------------------------------------------------
+    # Full-OWL-DL axioms — captured but NOT compiled to Rules by
+    # `src/kb/ontology_rules.py` (they can't be expressed in Horn /
+    # disjunctive / stratified-negation form). They're consumed
+    # exclusively by the HermiT adapter in `src/kb/ontology_owl.py`,
+    # which translates them to OWL and runs a real DL reasoner.
+    # An ontology that uses only the simpler axioms still works
+    # against the pure-stdlib compile-to-rules backend; using these
+    # axioms gracefully falls back ("HermiT unavailable") if neither
+    # owlready2 nor a Java runtime is installed.
+    # ------------------------------------------------------------------
+
+    # Cardinality restrictions: list of
+    #   (property, min, max, qualifier_class_or_None)
+    # min and max are int-or-None; qualifier_class restricts the count
+    # to objects of a particular class ("at least 2 Person children").
+    cardinality_axioms: list[tuple[str, int | None, int | None, str | None]] = field(
+        default_factory=list
+    )
+
+    # Complex class expressions defining a class as a set-theoretic
+    # combination. Each entry is (defined_class_name, expression_tuple)
+    # where expression_tuple varies by kind:
+    #   ("intersection", [class_name, ...])
+    #   ("union",        [class_name, ...])
+    #   ("complement",   class_name)
+    #   ("some",         property_name, target_class_name)
+    #   ("all",          property_name, target_class_name)
+    complex_class_definitions: list[tuple[str, tuple]] = field(default_factory=list)
+
+    # ------------------------------------------------------------------
     # Vocabulary declarations.
     # Optional — axiom methods auto-register their referenced names.
     # Useful when an ontology wants to list its vocabulary up front
@@ -265,6 +295,134 @@ class Ontology:
         self.properties.add(prop)
         self.classes.add(cls)
         self.range_constraints[prop] = cls
+        return self
+
+    # ------------------------------------------------------------------
+    # Full-OWL-DL axioms (consumed by the HermiT adapter only).
+    # ------------------------------------------------------------------
+
+    def cardinality(
+        self,
+        prop: str,
+        *,
+        min: int | None = None,
+        max: int | None = None,
+        exactly: int | None = None,
+        of: str | None = None,
+    ) -> "Ontology":
+        """Declare a cardinality restriction on `prop`.
+
+        Forms:
+          exactly=N        — exactly N values (sets min and max both to N)
+          min=N            — at least N values
+          max=N            — at most N values
+          min=N, max=M     — between N and M inclusive
+          of=ClassName     — qualified: count only objects in that class
+
+        Examples:
+          .cardinality("HAS_WHEEL", exactly=4)
+          .cardinality("HAS_CHILD", min=1, of="Person")
+          .cardinality("MEMBER_OF_BOARD", min=3, max=15)
+
+        Goes via the HermiT adapter — not compilable to Horn rules
+        (counting isn't first-order). The compile-to-rules backend
+        ignores cardinality declarations; HermiT consumes them and
+        reports violations as `CONFLICT_OWL_CARDINALITY` facts."""
+        self.properties.add(prop)
+        if of is not None:
+            self.classes.add(of)
+        if exactly is not None:
+            if min is not None or max is not None:
+                raise ValueError(
+                    "cardinality: pass either `exactly` or "
+                    "`min`/`max`, not both"
+                )
+            min_v, max_v = exactly, exactly
+        else:
+            min_v, max_v = min, max
+        self.cardinality_axioms.append((prop, min_v, max_v, of))
+        return self
+
+    def class_intersection(self, name: str, *parts: str) -> "Ontology":
+        """Define `name` as the intersection of the given classes:
+            name ≡ part_1 ⊓ part_2 ⊓ ... ⊓ part_n
+
+        Example: .class_intersection("LivingPhilosopher",
+                                      "Person", "Philosopher", "Living")
+
+        Used by the HermiT adapter — enables DL classification, where
+        an entity that's known to be in all the parts is automatically
+        inferred to be in the intersection."""
+        for c in parts:
+            self.classes.add(c)
+        self.classes.add(name)
+        self.complex_class_definitions.append(
+            (name, ("intersection", list(parts)))
+        )
+        return self
+
+    def class_union(self, name: str, *parts: str) -> "Ontology":
+        """Define `name` as the union of the given classes:
+            name ≡ part_1 ⊔ part_2 ⊔ ... ⊔ part_n
+
+        Example: .class_union("Parent", "Mother", "Father")"""
+        for c in parts:
+            self.classes.add(c)
+        self.classes.add(name)
+        self.complex_class_definitions.append(
+            (name, ("union", list(parts)))
+        )
+        return self
+
+    def class_complement(self, name: str, of: str) -> "Ontology":
+        """Define `name` as the complement of class `of`:
+            name ≡ ¬of
+
+        Example: .class_complement("LivingPerson", of="DeceasedPerson")
+        (in combination with a Person superclass for both)"""
+        self.classes.add(of)
+        self.classes.add(name)
+        self.complex_class_definitions.append(
+            (name, ("complement", of))
+        )
+        return self
+
+    def class_some_values(
+        self, name: str, prop: str, target: str,
+    ) -> "Ontology":
+        """Define `name` as the class of entities that have AT LEAST ONE
+        relation `prop` to an entity of class `target`:
+            name ≡ ∃prop.target
+
+        Example: .class_some_values("HasOffspring",
+                                     "PARENT_OF", "Person")"""
+        self.properties.add(prop)
+        self.classes.add(target)
+        self.classes.add(name)
+        self.complex_class_definitions.append(
+            (name, ("some", prop, target))
+        )
+        return self
+
+    def class_all_values(
+        self, name: str, prop: str, target: str,
+    ) -> "Ontology":
+        """Define `name` as the class of entities ALL of whose relations
+        `prop` go to entities of class `target`:
+            name ≡ ∀prop.target
+
+        Example: .class_all_values("AllChildrenPhilosophers",
+                                    "PARENT_OF", "Philosopher")
+
+        Note the closed-world subtlety: this is sound under open-world
+        OWL semantics — entities with NO known `prop` relations
+        vacuously satisfy the constraint."""
+        self.properties.add(prop)
+        self.classes.add(target)
+        self.classes.add(name)
+        self.complex_class_definitions.append(
+            (name, ("all", prop, target))
+        )
         return self
 
     # ------------------------------------------------------------------
