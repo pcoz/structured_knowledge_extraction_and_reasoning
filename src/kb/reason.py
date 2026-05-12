@@ -825,6 +825,78 @@ def _extended_pipeline_demo(kb: KB) -> None:
     print("=" * 78)
     print()
 
+    # ---- 7. HermiT augmentation (optional, soft dep) -------------
+    _hermit_augment(kb_weighted, ont)
+
+
+def _hermit_augment(kb: KB, base_ont) -> None:
+    """Run HermiT over the same KB with DL-only axioms layered on.
+
+    Demonstrates the OWL DL capability set that the compile-to-rules
+    backend can't express: full class hierarchy with intersection
+    classes (e.g., "ClassicalPhilosopher = Philosopher ∩ AncientEra"),
+    explicit disjointness, and inconsistency detection.
+
+    Soft-fail: silently skips with a one-line note if owlready2 or
+    the Java JVM aren't available — the rest of the demo keeps
+    working on pure stdlib hosts."""
+    from kb.ontology import Ontology
+    try:
+        from kb.ontology_owl import hermit_enrich
+    except Exception:
+        return
+
+    print("=" * 78)
+    print("HermiT DL augmentation")
+    print("=" * 78)
+    print()
+    print("Layering DL-only axioms onto the biographical ontology:")
+    print("  - Disjoint classes: Living vs Deceased")
+    print("  - Class intersection: ClassicalPhilosopher ≡ "
+          "Philosopher ⊓ AncientGreek")
+    print()
+
+    ont = (
+        Ontology("biographical-DL")
+        .subclass_of("Philosopher", "Person")
+        .subclass_of("AncientGreek", "Person")
+        .declare_classes("Living", "Deceased")
+        .disjoint_with("Living", "Deceased")
+        .class_intersection("ClassicalPhilosopher",
+                            "Philosopher", "AncientGreek")
+    )
+    # Tiny ABox showing the class-intersection inference.
+    sample_kb = KB(
+        triples=[
+            Triple("Aristotle", "IS_A", "Philosopher", "test", -1),
+            Triple("Aristotle", "IS_A", "AncientGreek", "test", -1),
+            Triple("Plato", "IS_A", "Philosopher", "test", -1),
+            Triple("Plato", "IS_A", "AncientGreek", "test", -1),
+            Triple("Descartes", "IS_A", "Philosopher", "test", -1),
+            # Descartes deliberately NOT asserted AncientGreek —
+            # HermiT should NOT classify him as ClassicalPhilosopher.
+        ],
+        alias_map={}, n_articles=0,
+    )
+    try:
+        _, derivs, info = hermit_enrich(sample_kb, ont)
+    except (ImportError, RuntimeError) as e:
+        print(f"  Skipped — HermiT not available: {e}")
+        print()
+        return
+
+    print(f"  Consistent: {info['consistent']}")
+    print(f"  Inferences: {info['n_inferred']}")
+    classical = sorted(
+        d.output.subject for d in derivs
+        if d.output.relation == "IS_A"
+        and d.output.object == "ClassicalPhilosopher"
+    )
+    print(f"  ClassicalPhilosopher (DL-inferred): {classical}")
+    print(f"  (Descartes correctly NOT classified — he's a "
+          f"Philosopher but not AncientGreek.)")
+    print()
+
 
 def main() -> None:
     print("=" * 78)

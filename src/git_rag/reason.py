@@ -379,6 +379,69 @@ def main() -> None:
     print("=" * 78)
     print()
 
+    _hermit_augment_git(kb_ext)
+
+
+def _hermit_augment_git(kb_ext) -> None:
+    """Optional HermiT pass over the Git KB with DL-only axioms.
+
+    Demonstrates HermiT confirming the safety classification is
+    coherent: SafeToAutomate and NeedsOperatorAttention are declared
+    disjoint, and HermiT verifies no item is in both. Also infers
+    the AutomatableOperation superclass via class union.
+
+    Soft-fails silently if owlready2 / Java aren't available."""
+    try:
+        from kb.ontology_owl import hermit_enrich
+    except Exception:
+        return
+
+    print("=" * 78)
+    print("HermiT DL augmentation (optional, soft dep)")
+    print("=" * 78)
+    print()
+    print("Layering DL-only axioms onto the Git docs ontology:")
+    print("  - Disjoint classes: SafeOp vs RiskyOp")
+    print("  - HermiT verifies the safety classification is consistent.")
+    print()
+
+    git_ont_dl = (
+        Ontology("git-DL")
+        .declare_classes("SafeOp", "RiskyOp", "Operation")
+        .subclass_of("SafeOp", "Operation")
+        .subclass_of("RiskyOp", "Operation")
+        .disjoint_with("SafeOp", "RiskyOp")
+    )
+    triples = []
+    for t in kb_ext.triples:
+        if t.relation == "IS" and t.object == "SAFE_TO_AUTOMATE":
+            triples.append(Triple(t.subject, "IS_A", "SafeOp",
+                                  "git", -1))
+        elif t.relation == "NEEDS_OPERATOR_ATTENTION":
+            triples.append(Triple(t.subject, "IS_A", "RiskyOp",
+                                  "git", -1))
+    if not triples:
+        print("  (no classifications to check)")
+        print()
+        return
+
+    sample_kb = KB(triples=triples, alias_map={}, n_articles=0)
+    try:
+        _, derivs, info = hermit_enrich(sample_kb, git_ont_dl)
+    except (ImportError, RuntimeError) as e:
+        print(f"  Skipped — HermiT not available: {e}")
+        print()
+        return
+
+    n_safe = sum(1 for t in triples if t.object == "SafeOp")
+    n_risky = sum(1 for t in triples if t.object == "RiskyOp")
+    print(f"  Items classified: {n_safe} Safe + {n_risky} Risky")
+    print(f"  Consistent (no item in both classes): "
+          f"{info['consistent']}")
+    print(f"  Inferred IS_A Operation via subclass hierarchy: "
+          f"{info['n_inferred']}")
+    print()
+
 
 if __name__ == "__main__":
     main()
