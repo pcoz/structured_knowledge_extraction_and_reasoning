@@ -127,6 +127,18 @@ Answer questions by generating text conditioned on the question.
   stochastic sampling. RLHF mitigates but doesn't solve.
 - **No provenance**: claims aren't tagged to sources; citations are
   often hallucinated post-hoc.
+- **Multi-framing collapse**: the training process unions every
+  framing of a subject (every era's view, every ideological lens,
+  every methodological tradition, every school of thought) into one
+  probability distribution. Asked about a contested subject, the
+  model produces a single smoothed answer with no internal switch
+  for "restrict to framing X." There's no structure preserving
+  "this view vs that view" — the difference is averaged away in
+  the weights. Anywhere multiple incompatible framings of the same
+  subject must coexist (intellectual history, doctrinal law,
+  contested clinical categories, opposing schools of thought,
+  cross-cultural traditions), this is a structural blocker, not a
+  prompt-engineering tunable.
 - **Knowledge cutoff**: frozen at training time, stale within months.
 - **Update cost**: re-training a frontier model is ~$100M and
   6+ months.
@@ -141,6 +153,15 @@ Answer questions by generating text conditioned on the question.
 - Updates are JSON edits, instant.
 - Auditability is automatic — every claim carries source provenance.
 - ~$0 per query, sub-millisecond latency.
+- **Multiple incompatible framings preserved structurally**. Each
+  framing of a subject — by era, by school of thought, by ideology,
+  by methodology, by cultural tradition — is its own scope on the
+  schema. The diachronic suite (`src/diachronic/`) demonstrates this
+  with paradigm shifts in the history of science; the same machinery
+  applies to any subject whose understanding is contested across
+  communities of thought. This is the dimension where LLM-as-KB
+  doesn't have a path forward without a fundamentally different
+  training objective.
 - Trade-off: bounded by the curated/extracted corpus; can't
   extemporise on topics outside the KB.
 

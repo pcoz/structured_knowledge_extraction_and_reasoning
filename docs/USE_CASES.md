@@ -32,7 +32,7 @@ to yours:
 | [Time-aware knowledge](#time-aware-knowledge) | 27-31 (regulatory over time, sanctions, drug labeling, land registry, contract obligations) | Allen interval algebra |
 | [Audit-trail reconstruction](#audit-trail-reconstruction) | 32-35 (insider trading, patent priority, sci-misconduct, e-discovery) | per-sentence provenance |
 | [Domain structural constraints](#domain-specific-structural-constraints) | 36-39 (BOMs, pharma formulation, hardware design, curriculum) | HermiT OWL DL adapter |
-| [Diachronic analysis / intellectual history](#diachronic-analysis--intellectual-history) | 40-43 (history of science, evolving legal interpretation, evolving medical understanding, contested terminology) | the `src/diachronic/` analyzer |
+| [Multi-framing / preserving incompatible views of the same subject](#multi-framing--preserving-incompatible-views-of-the-same-subject) | 40-47 (history of science, evolving legal interpretation, evolving medical understanding, contested terminology, competing schools of thought, ideologically-divided analysis, legal-perspective framings, cross-cultural framings) | the `src/diachronic/` machinery generalised |
 
 Use cases group by how much hallucination matters:
 
@@ -1085,14 +1085,31 @@ changes auditable to accreditors.
 
 ---
 
-## Diachronic analysis / intellectual history
+## Multi-framing / preserving incompatible views of the same subject
 
-Use cases where the question is *"how has thinking about X changed
-over time?"* — and that "how" is itself part of the answer. Same
-subject, different ways of assembling it across eras. The
-`src/diachronic/` suite is built around exactly this: same word,
-different IS_A class, different properties, different organising
-vocabulary across periods.
+This is the **killer-application category** for SKEAR's
+architecture. Use cases where the question isn't "what's the
+answer?" but "how has the subject been understood — across eras,
+schools of thought, ideologies, methodologies, cultures, or
+practitioner communities — and how are those framings
+structurally different?"
+
+This is exactly the failure mode of LLMs. They train on the union
+of all framings and produce a single smoothed answer. There's no
+internal switch for "restrict to framing X"; the structure of
+disagreement is averaged away in the weights.
+
+SKEAR represents each framing as scoped data: the same subject can
+carry incompatible IS_A classifications, properties, and organising
+relations under different framings, with each framing's scope and
+source explicit. Queries like "what did framing X hold about
+subject Y?" return the framing-specific answer, sourced. The
+`src/diachronic/` suite demonstrates this with historical eras as
+the scope axis; the same machinery applies to any scope axis —
+legal / jurisprudential perspective (common law vs civil law,
+plaintiff vs defendant framing, originalist vs purposive
+interpretation), ideological position, methodological tradition,
+school of thought, cultural community, practitioner discipline.
 
 ### 40. History of science / paradigm-shift tracking
 
@@ -1206,6 +1223,148 @@ historical record, drift-detection report comparing eras.
 defensible and reproducible; the way a term was used in 1850 is
 structurally distinguishable from its use in 2020, not just
 described as "different."
+
+---
+
+### 44. Competing schools of thought within a discipline
+
+**Currently uses**: review papers, LLM-assisted comparison.
+"What does cognitive science / economics / psychology say about
+[phenomenon]?" Each discipline has multiple internally-coherent
+schools — behaviorist vs cognitivist vs psychoanalytic in
+psychology; Keynesian vs Austrian vs MMT in economics; cognitive
+vs phenomenological vs enactivist in cognitive science.
+
+**Where it falls short**: LLMs collapse the schools into a
+synthesised "discipline says" answer that no school would
+actually endorse. Each school's distinctive framing — what counts
+as evidence, which causal mechanism dominates, what the basic
+unit of analysis is — gets smoothed.
+
+**How this addresses it**: each school's view is its own scope.
+Same phenomenon, different IS_A classifications (a depression is
+a chemical imbalance in one framing, a maladaptive cognitive
+schema in another, an unresolved transference in a third), each
+with the school's methodology and source corpus attributed.
+Queries can ask "what does school X hold?" without contaminating
+the answer with school Y's framing.
+
+**Implementation**: per-school corpus extraction, scope axis =
+school identifier, IS_A and HAS_EXPLANATION relations per school,
+methodology attributed as source-authority, schools as named
+contexts.
+
+**Win**: scholarly literature reviews become reproducible queries
+rather than narrative summaries; comparative work across schools
+can rest on structural data; no school's framing gets averaged
+into the dominant one.
+
+---
+
+### 45. Ideologically-divided analysis of contested events
+
+**Currently uses**: think-tank reports, journalism, LLM-assisted
+summarisation. "What happened during the [contested event]?"
+Politically-charged subjects — wars, regime changes, economic
+crises, social movements — get framed differently by different
+ideological communities.
+
+**Where it falls short**: LLMs converge on a centrist synthesis
+that satisfies no one and obscures the structural disagreement.
+Or worse, they adopt one framing wholesale (whichever dominated
+their training corpus) and present it as neutral.
+
+**How this addresses it**: each ideological framing is its own
+scope. Same event, different causal attributions, different
+moral classifications, different relevant antecedents. Queries
+return the framing-specific account with full source provenance;
+side-by-side comparison surfaces the actual disagreement rather
+than smoothing it.
+
+**Implementation**: per-framing source extraction (each ideological
+community has its canonical sources), framing axis as the scope,
+disjointness axioms between competing causal-attribution classes
+(when they're genuinely incompatible), conflict-detection without
+forced resolution (SurfaceForReviewPolicy preserves both).
+
+**Win**: comparative analysis defensible to all sides; the
+structural disagreement is data, not a synthesis casualty;
+researchers can audit which sources contributed to which framing.
+
+---
+
+### 46. Legal / jurisprudential perspective — same case, different framings
+
+**Currently uses**: litigation databases, brief-drafting tools,
+LLM-assisted "what does the case say?" Q&A. The same set of facts
+gets framed differently by plaintiff vs defendant, by originalist
+vs purposive interpretation, by common-law vs civil-law tradition,
+by liability theory (negligence vs strict liability vs intentional
+tort).
+
+**Where it falls short**: LLMs synthesise a single "the law says"
+answer that obscures the framings each side argues from. A
+defendant-side perspective and a plaintiff-side perspective on
+the same fact pattern are STRUCTURALLY different ways of carving
+the facts — what counts as a duty, what counts as causation, what
+counts as damages. LLMs flatten this into one neutral-sounding
+account that's useless for arguing either side.
+
+**How this addresses it**: each legal framing is its own scope.
+Same fact pattern, different IS_A classifications (the same
+conduct is "reasonable care" under one theory, "negligent" under
+another, "intentional" under a third), different applicable
+precedents per framing, different elements that count as
+satisfied. Queries can ask "from the plaintiff's framing, what
+controlling precedents apply?" or "from an originalist framing,
+how does this statute read?" — each answer scoped to its framing
+with full source citation.
+
+**Implementation**: per-framing extraction (each brief's framing
+becomes a scope), framing axis on the schema, precedent-applicable
+relations scoped per framing, statute-interpretation as scoped
+data (originalist text vs purposive text vs textualist text are
+different IS_A classifications of the same statute).
+
+**Win**: litigation research becomes structurally honest about
+the framing being used; opposing-counsel arguments can be
+reconstructed defensibly; the SAME fact pattern legitimately
+supports multiple framings, and the KB preserves that without
+forcing convergence on a "neutral" account.
+
+---
+
+### 47. Cross-cultural framings of the same phenomenon
+
+**Currently uses**: anthropology, comparative-religion scholarship,
+medical-pluralism literature. Same phenomenon — illness, death,
+kinship, justice, time — gets organised differently in different
+cultural traditions. Western biomedicine vs traditional Chinese
+medicine vs Ayurveda on the body. Common-law vs civil-law on legal
+reasoning. Different theological traditions on the same text.
+
+**Where it falls short**: LLMs default to whichever tradition
+dominated their training data and treat alternatives as deviations
+to be "explained." The structural fact that each tradition has its
+own internally-coherent way of carving up the phenomenon gets lost.
+
+**How this addresses it**: each tradition is its own scope on the
+schema. Same phenomenon, different IS_A classifications, different
+organising relations, different things counting as evidence. The
+KB doesn't pick one as canonical — it preserves each framing
+with its own community-internal coherence and authoritative
+sources.
+
+**Implementation**: per-tradition corpus extraction with
+tradition-specific source-authority, tradition as a scope axis on
+the schema, the same disjointness handling as ideological framings
+(when traditions genuinely classify things into incompatible
+categories), no forced canonicalisation across traditions.
+
+**Win**: comparative scholarship defensible by construction; no
+tradition gets implicitly demoted to "alternative"; clinical /
+legal / theological systems get structurally-faithful representation
+in cross-tradition work.
 
 ---
 

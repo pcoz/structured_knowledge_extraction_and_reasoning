@@ -80,13 +80,24 @@ The result is a system that:
   documents to answer questions whose answers no single document
   contains — transitive lineages, multi-relation aliasing,
   closed-world "what's missing?" queries, time-aware "when did this
-  hold?" queries — each derived fact carrying a complete proof
-  trail.
+  hold?" queries, paradigm-shift detection across historical eras
+  — each derived fact carrying a complete proof trail.
 - **Knows what it doesn't know.** Facts can carry validity windows
   and confidence scores. Sources can be ranked by authority. When
   sources contradict, a pluggable resolution policy (latest-wins,
   highest-confidence, authority-wins, or surface-for-review)
   decides what to do — deterministically, at construction time.
+- **Preserves multiple ways the same thing has been understood.**
+  The schema itself — classifications, organising relations, which
+  properties count, what counts as a fact at all — is data with a
+  scope and a source. The same subject can be assembled differently
+  by different eras, legal or jurisprudential perspectives,
+  ideologies, methodologies, schools of thought, cultural
+  traditions, or practitioner communities; the differences are
+  queryable rather than averaged away. LLMs blend every framing
+  into one synthesised answer; SKEAR preserves the structural
+  disagreement. **This is the architectural feature most directly
+  pointed at the failure mode of current AI.**
 
 ## Who this is for
 
@@ -100,6 +111,7 @@ The result is a system that:
 | Need to reconcile facts from many sources — internal wikis, regulatory filings, vendor docs, legacy databases | The distillation pipeline detects contradictions, weighs sources by authority, corroborates multi-source agreement, and produces one clean canonical artifact |
 | Need an audit trail of facts that change over time — policies, regulations, product specs, employment records, drug labels | Triples carry validity windows; "what was true on date X" is a deterministic query |
 | Need to flag uncertain or disputed information rather than pretend it's settled | Confidence scores propagate through reasoning chains; disputed facts surface with their conflict signature attached |
+| Need to preserve multiple ways the same subject has been framed — different perspectives, eras, ideologies, methodologies, schools of thought, schools of practice | Each framing is preserved as structured data with its own schema, sources, and validity scope; the differences between framings are queryable rather than smoothed into one narrative |
 
 ## What's in the repository
 

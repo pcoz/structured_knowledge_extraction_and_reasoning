@@ -22,7 +22,7 @@ GraphRAG, Wikidata, OpenIE, FrameNet, CYC, ...) see
 
 ## At a glance
 
-Five architectural contributions, summarised in one sentence each:
+Six architectural contributions, summarised in one sentence each:
 
 1. **Cell-grammar with `shape × context × flavour`** — adds a third
    axis (flavour: speaker style / corpus voice) to frame-semantics,
@@ -42,6 +42,18 @@ Five architectural contributions, summarised in one sentence each:
    + disjunctive + stratified negation + OWL DL via HermiT),
    conversational generation, and compression, all with per-fact
    provenance.
+6. **Schema-as-data — preserving multiple incompatible framings of
+   the same subject** — the IS_A classifications, organising
+   relations, and conceptual apparatus that frame each fact are
+   themselves first-class data with scope (temporal, ideological,
+   methodological, traditional) and source attribution. The same
+   subject can be structurally reassembled by different eras, schools
+   of thought, ideologies, or communities — and the differences
+   between framings are queryable rather than averaged away. This is
+   the architectural feature most directly pointed at the failure
+   mode of LLM-based AI, which trains on the union of all framings
+   and produces a single smoothed answer with no internal structure
+   for "this view vs that view."
 
 Each is explained in detail below.
 
@@ -175,6 +187,61 @@ generation, and compression — all grounded with per-fact provenance.
   - Maintains provenance everywhere (rule → inputs → source text)
   - Is itself compression-grade (structured form is ~5-10× smaller
     than surface text on template-matching content)
+
+---
+
+## 6. Schema-as-data: preserving multiple incompatible framings
+
+**What it is**: the IS_A classifications, organising relations, and
+conceptual apparatus that frame a fact are themselves first-class
+data — they carry their own scope (temporal, ideological,
+methodological, traditional) and source attribution. The same
+subject can be structurally reassembled by different communities of
+thought, and the differences between framings are queryable rather
+than averaged away.
+
+The atom is a worked example: the SAME word carries IS_A
+`IndivisiblePrinciple` (Greek atomism), `RejectedHypothesis`
+(Aristotelians), `SmallHardSphere` (Newtonian), `ChemicalElement`
+(Daltonian), `CompositeStructure` (Rutherford / Bohr), and
+`QuantumSystem` (modern). Property `indivisible` is affirmed
+across four eras then rejected; the reversal is a queryable
+event, not narrative summary.
+
+**Prior art**:
+- CYC microtheories (Lenat 1991-) — contextual logic for facts
+  that hold in some contexts but not others. The closest direct
+  ancestor.
+- Description Logic with versioning extensions (OWL-Time, named
+  graphs) — schema-as-data is partial in RDF/OWL ecosystems but
+  not the central design point.
+- Formal Concept Analysis (Wille 1982-) — extensional vs
+  intensional definition; an entity can belong to multiple
+  concept lattices simultaneously.
+
+**What's new here**:
+- **Schema lives in the same triple shape as the facts**. IS_A is
+  a relation like any other, with the same temporal scope,
+  confidence, source-authority, and provenance treatment. No
+  separate metalanguage. No "schema layer" outside the data.
+- **Multi-framing without contradiction at any single time**. The
+  temporal-scoping in `src/kb/temporal.py` (Allen interval algebra
+  + the `intersects` predicate) means functional-property axioms
+  on IS_A flag conflicts only WITHIN a single scope. The same
+  subject's five different IS_A classes across eras don't trip
+  the conflict detector.
+- **Framings as a general capability, not just historical scoping**.
+  The diachronic suite uses temporal scope (eras). The same
+  machinery works for any scope axis: ideological position,
+  methodological tradition, school of thought, cultural community,
+  practitioner discipline. The schema slot doesn't care whether
+  the scope is "Newtonian-era" or "Keynesian-school" or
+  "phenomenological-tradition."
+- **Architecturally pointed at LLM failure mode**. LLMs train on
+  the union of all framings and produce a single smoothed answer.
+  There's no internal switch for "restrict to framing X." SKEAR
+  has that switch as a scope query — the difference shows up as
+  structure preserved, not narrative averaged.
 
 ---
 
