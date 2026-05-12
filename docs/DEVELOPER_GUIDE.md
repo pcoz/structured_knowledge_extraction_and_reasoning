@@ -17,6 +17,37 @@ For where this sits relative to similar technology see
 
 ---
 
+## First time? Try this
+
+The fastest way to see SKEAR working is to run the demos and read
+the output. They ship with their corpora; no setup beyond Python 3.
+
+```bash
+python src/kb/query.py        # Wikipedia knowledge graph queries
+python src/ahab/talk.py       # 13-question conversation with Captain Ahab
+python src/git_rag/query.py   # 15 Git documentation Q&A pairs
+python src/kb/reason.py       # rule-based inference + 10 stress tests
+```
+
+Each prints human-inspectable output with provenance attached. The
+first three take a few seconds; the fourth runs the full reasoning
+suite over ~2,000 base facts.
+
+When you want to read code, the natural entry points are:
+
+- **`src/kb/query.py`** — `KB.load()`, `KB.out_facts()`,
+  `KB.find_paths()`. The core query API; everything else builds on it.
+- **`src/kb/reason.py`** — `apply_all_rules_to_fixpoint`. The rule
+  engine. ~700 lines; the most important file in the codebase.
+- **`src/ahab/reason.py`** — a worked example of applying the engine
+  to a new domain. The cleanest reference if you're building your
+  own reasoner.
+
+If you have a specific goal in mind, jump to the matching recipe in
+the [Recipes](#recipes) section below.
+
+---
+
 ## Code map — what lives where
 
 ```
