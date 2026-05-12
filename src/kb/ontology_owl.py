@@ -460,8 +460,15 @@ def hermit_enrich(
     }
     for ext_name, ind in individuals.items():
         # INDIRECT_is_a includes inferred superclasses; that's the
-        # closure we want to mine for new memberships.
-        post = {c.name for c in ind.INDIRECT_is_a}
+        # closure we want to mine for new memberships. Filter to
+        # entries that are actual named classes — INDIRECT_is_a can
+        # include Restriction expressions (cardinality, someValuesFrom,
+        # etc.) inherited transitively from the class hierarchy, and
+        # those don't have a `.name` attribute.
+        post = {
+            c.name for c in ind.INDIRECT_is_a
+            if hasattr(c, "name") and isinstance(c.name, str)
+        }
         new_classes = post - pre_classes[ext_name]
         for cls_name in new_classes:
             if cls_name == "Thing":
