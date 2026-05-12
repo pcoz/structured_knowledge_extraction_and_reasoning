@@ -17,8 +17,8 @@ looks like, and what's gained.
 
 ## Quick navigation
 
-39 use cases, organised into ten clusters. Jump to the one closest
-to yours:
+47 use cases, organised into eleven clusters. Jump to the one
+closest to yours:
 
 | Cluster | Use cases | Anchor in the project |
 |---|---|---|

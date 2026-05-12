@@ -266,7 +266,7 @@ JSON artifacts, sub-millisecond runtime serving with no AI or JVM
 in the loop, edge deployability, four cross-domain demonstrations
 (Wikipedia / Moby-Dick / Git docs / astronomical distillation), a
 programmable distillation pipeline, the full Allen interval algebra
-as a first-class primitive, and 45 assertion-backed stress tests.
+as a first-class primitive, and 50 assertion-backed stress tests across six suites.
 
 ### Integration possibilities
 

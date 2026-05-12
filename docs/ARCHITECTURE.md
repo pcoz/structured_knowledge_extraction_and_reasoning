@@ -271,6 +271,31 @@ here in specific ways. Definitions:
   disjointness, and domain/range — the subset of OWL that maps to
   Horn + disjunctive + stratified-negation rules.
 
+- **Schema-as-data** — the principle that IS_A classifications,
+  organising relations, and ontological structure are themselves
+  first-class triples carrying scope (temporal, ideological,
+  methodological, etc.) and source attribution. The same subject
+  can be structurally reassembled across framings without
+  contradiction at any single scope.
+
+- **Scope axis** — the dimension along which a framing varies.
+  Temporal scope uses `valid_from` / `valid_to`. Other framings —
+  ideological, methodological, school-of-thought, legal-
+  perspective, cultural-tradition — use the same mechanism applied
+  to a non-temporal axis (the framing identifier becomes part of
+  the triple's scope).
+
+- **Framing** — one community's, era's, or school's coherent way of
+  assembling a subject: which IS_A class applies, which properties
+  count, which relations organise it. Multiple framings can coexist
+  on the same subject; the differences are queryable rather than
+  averaged. See `src/diachronic/` for the worked example.
+
+- **Paradigm shift** — a structural change in the framing of a
+  subject: the IS_A class shifts, properties get added or rejected,
+  the organising vocabulary turns over. Detectable as schema drift
+  in the diachronic analyzer.
+
 ### Construction / serving terms
 
 - **Construction time** — when the KB is built. AI is involved
@@ -758,16 +783,19 @@ Three demos in this repo cover three source-text types:
 | Knowledge distillation | multi-source noisy corpus | — | `src/distill/purify.py` |
 | Diachronic analysis | one subject across historical eras | — | `src/diachronic/analyse.py` |
 
-The same reasoning engine drives all four reasoners — only the
+The same reasoning engine drives all five reasoners — only the
 projection from domain records into Triple form (and the choice of
 ontology axioms) differs. `src/ahab/reason.py` derives theme
-co-occurrence networks and classifies utterances. `src/git_rag/reason.py`
-derives transitive topic-navigation and an automation-safety flag.
-`src/distill/purify.py` runs the full purification sweep over a
-deliberately-noisy multi-source corpus: detect conflicts, resolve via
-a chain policy, corroborate multi-source agreement via noisy-OR, prune
-below threshold, strip markers. All four reuse the engine in
-`src/kb/reason.py` unchanged.
+co-occurrence networks and classifies utterances.
+`src/git_rag/reason.py` derives transitive topic-navigation and an
+automation-safety flag. `src/distill/purify.py` runs the full
+purification sweep over a deliberately-noisy multi-source corpus.
+`src/diachronic/analyse.py` tracks how the same subject is
+ASSEMBLED differently across historical eras (the atom across 2,500
+years), surfacing schema drift and property reversals — the
+prototype for the more general multi-framing capability covered in
+`docs/NOVELTIES.md` #6 and `docs/USE_CASES.md` cases 40-47. All
+five reuse the engine in `src/kb/reason.py` unchanged.
 
 To add a new domain (e.g., medical guidelines, legal codes,
 scientific literature):
