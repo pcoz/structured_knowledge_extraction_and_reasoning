@@ -15,6 +15,22 @@ Datetime-stamped record of significant work. Times are local
 
 ## 2026-06-15
 
+### New example suite: ingestion / import-consistency (`src/ingestion/`)
+
+A seventh demo suite for the **import** problem: merging data from several
+"authoritative" sources into one record and discovering the result is
+self-contradictory. Four vendor/CMMS/audit exports for one asset load
+without error, but computing the logical closure on import surfaces three
+contradictions — a functional violation (two rated flows), a direct
+disjoint-class clash (in-service vs decommissioned), and a **latent** one
+that no single triple reveals: the subclass closure proves the asset is
+both a rotodynamic and a positive-displacement machine. Each is traced
+back to the exact source sentences via the derivation trail, and the demo
+shows the genuine difficulty of importing anyway (resolve-with-data-loss
+vs surface-for-review) and why scoping these as microtheories would be the
+wrong fix (they are data errors, not legitimate framings). Assert-backed;
+run `python -m ingestion.analyse` from `src/`.
+
 ### Feature: first-class microtheory / framing scope (`Triple.scope`)
 
 Added an optional `scope` tag to `Triple` (`src/kb/query.py` and

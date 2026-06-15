@@ -226,6 +226,18 @@ src/
     │                     and how re-scoping repairs it.
     └── test_scope.py     unit test for Triple.scope semantics + backward
                           compatibility (10 checks).
+│
+└── ingestion/           import-consistency demo: importing self-
+    │                     contradictory data and locating the source's
+    │                     own inconsistency (incl. a LATENT contradiction
+    │                     that only appears in the logical closure).
+    ├── corpus.py         four vendor/CMMS/audit exports for one asset,
+    │                     with direct + derived contradictions, plus the
+    │                     engineering taxonomy that makes the latent one fire.
+    └── analyse.py        import audit: surfaces each contradiction with the
+                          source sentences that produced it; shows the
+                          difficulty (resolve-with-data-loss vs surface-for-
+                          review) and why scoping would be the wrong fix.
 ```
 
 ---
@@ -1007,6 +1019,7 @@ python src/diachronic/analyse.py       # changing-patterns-of-thinking + 5 stres
 python -m microtheory.analyse          # four schools of economics, one recession
 python -m microtheory.breakage         # how overlapping microtheories break knowledge
 python -m microtheory.test_scope       # scope unit test (10 checks)
+python -m ingestion.analyse            # importing self-contradictory data (incl. latent)
 ```
 
 Three assertion-backed stress suites pin engine properties:

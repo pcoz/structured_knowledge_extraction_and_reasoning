@@ -115,7 +115,7 @@ The result is a system that:
 
 ## What's in the repository
 
-Six working demonstrations, each runnable in a few seconds without
+Seven working demonstrations, each runnable in a few seconds without
 any setup, API keys, or external dependencies:
 
 ### A Wikipedia knowledge graph
@@ -203,7 +203,22 @@ mis-scoped to global, or two contexts merged into one — the coherent body
 of knowledge collapses into contradiction, and re-separating the scopes
 repairs it. *(See `src/microtheory/`; uses the `Triple.scope` slot.)*
 
-### Same reasoning engine, six different data shapes
+### An ingestion / import-consistency demo
+
+A seventh suite for the **import** problem: what happens when you merge data
+from several "authoritative" sources into one record and the result is
+self-contradictory. Four vendor/CMMS/audit exports for a single pump load
+without error and look individually fine — but computing the logical closure
+on import surfaces **three contradictions**, each traced back to the exact
+source sentences. One is **latent**: no single triple is wrong, yet the
+taxonomy's subclass closure proves the pump is classified as *both* a
+rotodynamic and a positive-displacement machine (physically impossible). The
+demo then shows the real difficulty — a consistent merge must discard sourced
+facts, or surface them for review — and notes that scoping these as
+microtheories would be wrong, because they are data errors, not legitimate
+framings. *(See `src/ingestion/`.)*
+
+### Same reasoning engine, seven different data shapes
 
 Each demo above ships with a companion reasoning script
 (`src/kb/reason.py`, `src/ahab/reason.py`, `src/git_rag/reason.py`,
@@ -221,7 +236,7 @@ operations by automation safety. The distillation pipeline
 demonstrates the full purification sweep: noisy in, canonical out.
 
 The point: structured reasoning is domain-agnostic. The same code
-paths drive all six; what differs is how each domain projects its
+paths drive all seven; what differs is how each domain projects its
 records into the standard triple form.
 
 ## How it works, in plain language
@@ -283,12 +298,13 @@ inheriting context lattice.)*
 provenance (stronger than Cyc's microtheory-level), bidirectional
 structure ↔ text via the cell-grammar layer, inspectable plain-text
 JSON artifacts, sub-millisecond runtime serving with no AI or JVM
-in the loop, edge deployability, six cross-domain demonstrations
+in the loop, edge deployability, seven cross-domain demonstrations
 (Wikipedia / Moby-Dick / Git docs / astronomical distillation /
-diachronic eras / multi-framing microtheories), a programmable
-distillation pipeline, the full Allen interval algebra as a
-first-class primitive, flat microtheory scoping on the Triple, and
-60+ assertion-backed stress scenarios across seven suites.
+diachronic eras / multi-framing microtheories / import-consistency
+auditing), a programmable distillation pipeline, the full Allen
+interval algebra as a first-class primitive, flat microtheory scoping
+on the Triple, and 60+ assertion-backed stress scenarios across eight
+suites.
 
 ### Integration possibilities
 

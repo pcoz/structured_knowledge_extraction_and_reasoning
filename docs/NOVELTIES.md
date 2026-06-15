@@ -472,7 +472,7 @@ it has to do five things at once:
   5. Stay edge-deployable, license-able, and cheap at query time.
 
 SKEAR demonstrates that all five are simultaneously achievable
-with current technology. The 60+ stress assertions and six cross-
+with current technology. The 60+ stress assertions and seven cross-
 domain demos are the evidence; the architectural commitments
 (construction/runtime split, schema-as-data, per-fact provenance,
 soft-dependency adapter for full DL) are the mechanism.
