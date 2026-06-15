@@ -44,7 +44,7 @@ sys.path.insert(0, str(_THIS_DIR.parent))
 
 from corpus import build_atom_kb, ERA_BOUNDARIES
 from kb.query import KB, Triple
-from kb.temporal import _parse_date
+from kb.temporal import _parse_date, _YEAR_STRIDE
 
 
 # ----------------------------------------------------------------------
@@ -66,9 +66,12 @@ def _facts_in_era(kb: KB, era_from: int, era_to: int) -> list[Triple]:
         # Treat unbounded endpoints as the relevant infinity.
         f_eff = f if f is not None else -10**9
         to_eff = to if to is not None else 10**9
-        # Convert era's plain int years to the same scale (year * 366).
-        ef = era_from * 366
-        et = era_to * 366
+        # Convert era's plain int years (signed; negative = BCE) to the
+        # SAME scale as the parsed triple dates. Use the temporal module's
+        # year stride rather than a hardcoded copy, so this never desyncs
+        # when the date encoding changes.
+        ef = era_from * _YEAR_STRIDE
+        et = era_to * _YEAR_STRIDE
         if to_eff < ef or f_eff > et:
             continue
         facts.append(t)
