@@ -335,9 +335,13 @@ For the full structured comparison plus integration analysis, see
 
 ## Trying it out
 
-If you have Python installed, all three demos run with a single
-command each. The technical reader will find the details in
-[docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md).
+If you have Python installed, every demo runs with a single command
+(no setup, API keys, or external dependencies). The `kb/`, `ahab/`,
+`git_rag/`, `distill/`, and `diachronic/` demos run as scripts
+(`python src/kb/reason.py`, …); the `microtheory/` and `ingestion/`
+suites run as modules from `src/` (`python -m microtheory.analyse`,
+`python -m ingestion.analyse`). The technical reader will find the full
+list in [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md).
 
 ## Where to go next
 
