@@ -13,6 +13,40 @@ Datetime-stamped record of significant work. Times are local
 
 ---
 
+## 2026-06-15
+
+### Fix: year-boundary date ordering + succession-aware conflict detection
+
+Two related temporal-correctness fixes (`src/kb/temporal.py`,
+`src/kb/ontology_rules.py`):
+
+- **`_parse_date` was non-monotonic at year boundaries.** With a `*31`
+  month stride the maximum intra-year offset is `11*31 + 30 = 371`,
+  which exceeded the `y*366` year stride — so late-December dates
+  (Dec 26–31) sorted *after* the following January. This silently
+  corrupted `intersects` / `before` / `after` / `during` for any
+  interval touching a year-end. Reworked to an ordering-only scheme
+  (`32`/month, `384`/year) whose year stride strictly exceeds the max
+  intra-year offset (382). Only relative order is used anywhere, so the
+  magnitude change is safe.
+- **Added `temporal.strictly_overlaps`** (positive-duration overlap;
+  excludes Allen "meets"/touching boundaries) and switched
+  functional / inverse-functional conflict detection to it. A value
+  that ends exactly where its successor begins is now treated as a
+  clean succession, not a contradiction. `intersects` keeps its
+  permissive "meets"-inclusive semantics for temporal propagation.
+
+Docs: `_parse_date`, `intersects`, `strictly_overlaps`,
+`_compile_functional`, and `Ontology.functional_property` docstrings
+updated; `docs/DEVELOPER_GUIDE.md` temporal section notes the
+intersects-vs-strictly_overlaps distinction and the succession
+convention. Regression: the `distill.purify` demo is unchanged
+(29-fact canonical KB, 28 conflicts), the Pluto Planet-vs-DwarfPlanet
+classification remains correctly exempt, genuine same-period conflicts
+are still caught, and the diachronic demo is unaffected.
+
+---
+
 ## 2026-05-12
 
 ### New example suite: diachronic analysis (changing patterns of thinking)

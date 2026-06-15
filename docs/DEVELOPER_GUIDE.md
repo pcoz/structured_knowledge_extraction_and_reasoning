@@ -82,7 +82,9 @@ src/
 │   │                     intersection used by the engine to propagate
 │   │                     validity through derivation chains.
 │   │                     KEY CLASSES: Interval
-│   │                     KEY FUNCS: intersects, intersection,
+│   │                     KEY FUNCS: intersects (permissive, incl. "meets"),
+│   │                                strictly_overlaps (positive-duration,
+│   │                                used by conflict detection), intersection,
 │   │                                intersection_of_inputs, valid_at,
 │   │                                before/after/meets/overlaps/...,
 │   │                                compose, invert
@@ -493,8 +495,16 @@ t = Triple(
 )
 
 # Check whether two facts coexist in time.
+# `intersects` is permissive — it counts touching boundaries ("meets")
+# as coexistence, which is what temporal PROPAGATION wants.
 if intersects(Interval(t.valid_from, t.valid_to), other_interval):
     ...
+
+# For CONFLICT detection use `strictly_overlaps` (positive-duration
+# overlap): a value that ends exactly where its successor begins is a
+# clean succession, not a contradiction. To model such a succession,
+# give the two periods touching/adjacent windows (e.g. valid_to=
+# "2018-12-31" then valid_from="2019-01-01") or leave the open side None.
 
 # Point-in-time check.
 if valid_at(t, "400 BC"):
