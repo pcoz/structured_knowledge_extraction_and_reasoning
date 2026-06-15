@@ -389,7 +389,14 @@ def intersects(a: Interval, b: Interval) -> bool:
 
     Used by the engine's temporal-propagation pass and by the
     conflict detector — both want 'do these triples coexist in
-    time, yes/no?' rather than the more nuanced Allen taxonomy."""
+    time, yes/no?' rather than the more nuanced Allen taxonomy.
+
+    NOTE — "meets" counts as intersecting. Two fully-bounded periods
+    that merely TOUCH (one's valid_to equal/adjacent to the other's
+    valid_from) return True here. Functional/disjoint conflict
+    detection therefore treats touching successive periods as
+    overlapping; to model a clean value succession use open-ended
+    sides (None) or a real gap. See `Ontology.functional_property`."""
     xf, xt = _endpoints(a)
     yf, yt = _endpoints(b)
     # None endpoints act as -∞ / +∞: any unbounded side trivially

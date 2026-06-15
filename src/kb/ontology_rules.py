@@ -371,6 +371,13 @@ def _compile_functional(prop: str) -> Rule:
     don't overlap are NOT flagged — a person can be CURRENT_EMPLOYER
     of two companies at different times without contradiction.
 
+    Overlap is tested with `temporal.intersects`, which counts Allen's
+    "meets" (touching boundaries) as overlapping. Two FULLY-BOUNDED
+    successive periods that touch (e.g. valid_to="2018-12-31" then
+    valid_from="2019-01-01") therefore DO get flagged. To model a clean
+    succession use open-ended sides (None) or a real gap — see
+    `Ontology.functional_property` for the convention and rationale.
+
     src/kb/conflict.py consumes these markers and applies a
     resolution policy (LatestWins, HighestConfidence, etc.)."""
     rule_name = f"owl:FunctionalProperty({prop})"

@@ -183,7 +183,25 @@ class Ontology:
         If your property is functional only WITHIN a time window
         (e.g., CURRENT_EMPLOYER), pair it with temporal slots — the
         conflict detector only treats temporally-overlapping triples
-        as conflicting."""
+        as conflicting.
+
+        TEMPORAL CONVENTION (important for "value changed on date X"):
+        overlap is tested with ``temporal.intersects``, which counts
+        Allen's "meets" relation (touching boundaries) as overlapping.
+        So two FULLY-BOUNDED successive periods that touch — e.g.
+        ``valid_to="2018-12-31"`` then ``valid_from="2019-01-01"`` —
+        are read as overlapping and WILL be flagged as a (spurious)
+        conflict. To represent a clean succession (old value held until
+        X, new value from X), use one of:
+          * open-ended sides — leave the historical fact's ``valid_from``
+            and the current fact's ``valid_to`` as ``None`` (the
+            convention used by the bundled Pluto example: Planet up to
+            the cutoff, DwarfPlanet from the cutoff); or
+          * a real gap — end the prior period strictly before the next
+            begins (e.g. ``valid_to="2018-12-31"`` / ``valid_from=
+            "2019-06-01"``).
+        Both leave the periods genuinely non-overlapping, so the
+        succession is preserved rather than flagged."""
         self.properties.add(prop)
         self.functional_properties.add(prop)
         return self
