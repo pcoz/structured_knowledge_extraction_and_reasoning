@@ -99,14 +99,30 @@ _BC_YEAR = re.compile(r"^(\d{1,4})\s*BC$", re.IGNORECASE)
 _AD_YEAR = re.compile(r"^(\d{1,4})\s*AD$", re.IGNORECASE)
 
 
+#: Encoding strides for `_parse_date`. The scheme is ORDERING-ONLY (a
+#: sortable integer, not a true day count). The invariant that makes it
+#: correct: the year stride must STRICTLY EXCEED the largest possible
+#: intra-year offset, so dates never bleed across year boundaries.
+#: Max intra-year offset = (12-1)*_MONTH_STRIDE + (31-1) = 11*32 + 30 = 382,
+#: and _YEAR_STRIDE = 384 > 382. (The previous code used 366 with a
+#: *31 month stride, giving a max offset of 371 > 366 — so late-December
+#: dates like 2018-12-31 sorted AFTER 2019-01-01, silently corrupting
+#: every temporal comparison near year-ends.)
+_MONTH_STRIDE = 32
+_YEAR_STRIDE = 12 * _MONTH_STRIDE  # 384
+
+
 def _parse_date(s: str | None) -> int | None:
-    """Parse an ISO-ish date string into a sortable integer.
+    """Parse an ISO-ish date string into a sortable integer (ordering-only).
 
     Returns None for None, empty, or unrecognised inputs — callers
-    treat None as 'no constraint on this side'. The integer scale
-    is days-since-year-0 (approximate); BC years map to negative
-    integers, AD to positive, so ordering across the era boundary
-    works without special-casing."""
+    treat None as 'no constraint on this side'. BC years map to negative
+    integers, AD to positive, so ordering across the era boundary works
+    without special-casing. The value is NOT a true day count: it is a
+    monotonic ordinal where consecutive years differ by `_YEAR_STRIDE`,
+    chosen to exceed the max intra-year offset so ordering is correct at
+    year boundaries (see the stride constants above). Only relative order
+    is meaningful — do not subtract two values to get a duration."""
     if not s:
         return None
     s = s.strip()
@@ -115,20 +131,20 @@ def _parse_date(s: str | None) -> int | None:
     m = _FULL_DATE.match(s)
     if m:
         y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
-        return y * 366 + (mo - 1) * 31 + (d - 1)
+        return y * _YEAR_STRIDE + (mo - 1) * _MONTH_STRIDE + (d - 1)
     m = _YEAR_MONTH.match(s)
     if m:
         y, mo = int(m.group(1)), int(m.group(2))
-        return y * 366 + (mo - 1) * 31
+        return y * _YEAR_STRIDE + (mo - 1) * _MONTH_STRIDE
     m = _BC_YEAR.match(s)
     if m:
-        return -int(m.group(1)) * 366
+        return -int(m.group(1)) * _YEAR_STRIDE
     m = _AD_YEAR.match(s)
     if m:
-        return int(m.group(1)) * 366
+        return int(m.group(1)) * _YEAR_STRIDE
     m = _YEAR_ONLY.match(s)
     if m:
-        return int(m.group(1)) * 366
+        return int(m.group(1)) * _YEAR_STRIDE
     return None
 
 
@@ -391,12 +407,13 @@ def intersects(a: Interval, b: Interval) -> bool:
     conflict detector — both want 'do these triples coexist in
     time, yes/no?' rather than the more nuanced Allen taxonomy.
 
-    NOTE — "meets" counts as intersecting. Two fully-bounded periods
-    that merely TOUCH (one's valid_to equal/adjacent to the other's
-    valid_from) return True here. Functional/disjoint conflict
-    detection therefore treats touching successive periods as
-    overlapping; to model a clean value succession use open-ended
-    sides (None) or a real gap. See `Ontology.functional_property`."""
+    NOTE — "meets" counts as intersecting: two periods that share only
+    a single boundary instant return True here. That is the right answer
+    for temporal PROPAGATION (a derived fact is valid at the touching
+    instant), but the WRONG answer for conflict detection (a value that
+    ends exactly when its successor begins is a clean succession, not a
+    contradiction). Conflict detection therefore uses `strictly_overlaps`
+    instead — see below and `Ontology.functional_property`."""
     xf, xt = _endpoints(a)
     yf, yt = _endpoints(b)
     # None endpoints act as -∞ / +∞: any unbounded side trivially
@@ -406,6 +423,28 @@ def intersects(a: Interval, b: Interval) -> bool:
     if yf is not None and xt is not None and yf > xt:
         return False
     return True
+
+
+def strictly_overlaps(a: Interval, b: Interval) -> bool:
+    """True iff `a` and `b` share a POSITIVE-duration period.
+
+    Stricter than `intersects`: excludes Allen's "meets"/"met_by"
+    (touching at a single boundary, zero-duration contact). This is the
+    predicate conflict detection wants — two functional values where one's
+    validity ends exactly where the next begins are a clean succession,
+    NOT a contradiction. An unbounded side (None) is treated as -∞/+∞ and
+    so contributes positive duration.
+
+    Truth table (verified): genuine overlap / during / contains /
+    one-sided-open / fully-unbounded -> True; touching-consecutive,
+    exact-same-boundary, and disjoint -> False."""
+    froms = [_parse_date(s) for s in (a.valid_from, b.valid_from) if s is not None]
+    tos = [_parse_date(s) for s in (a.valid_to, b.valid_to) if s is not None]
+    lo = max(froms) if froms else None   # latest start; None => -∞
+    hi = min(tos) if tos else None       # earliest end; None => +∞
+    if lo is None or hi is None:
+        return True                      # unbounded constraining side => positive duration
+    return lo < hi                       # strict: touching (lo == hi) is NOT an overlap
 
 
 def intersection(a: Interval, b: Interval) -> Interval:

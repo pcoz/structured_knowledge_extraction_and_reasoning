@@ -371,11 +371,10 @@ def _compile_functional(prop: str) -> Rule:
     don't overlap are NOT flagged — a person can be CURRENT_EMPLOYER
     of two companies at different times without contradiction.
 
-    Overlap is tested with `temporal.intersects`, which counts Allen's
-    "meets" (touching boundaries) as overlapping. Two FULLY-BOUNDED
-    successive periods that touch (e.g. valid_to="2018-12-31" then
-    valid_from="2019-01-01") therefore DO get flagged. To model a clean
-    succession use open-ended sides (None) or a real gap — see
+    Overlap is tested with `temporal.strictly_overlaps` (positive-duration
+    overlap), so a clean value succession — one value ending exactly where
+    the next begins (touching boundaries, Allen "meets") — is NOT flagged.
+    Only genuinely co-valid pairs conflict. See
     `Ontology.functional_property` for the convention and rationale.
 
     src/kb/conflict.py consumes these markers and applies a
@@ -384,7 +383,7 @@ def _compile_functional(prop: str) -> Rule:
 
     # Lazy import to avoid making temporal a hard dependency of
     # ontology_rules when the caller doesn't use functional props.
-    from kb.temporal import interval_of, intersects
+    from kb.temporal import interval_of, strictly_overlaps
 
     def fn(kb: KB) -> list[Derivation]:
         out: list[Derivation] = []
@@ -403,11 +402,11 @@ def _compile_functional(prop: str) -> Rule:
                     if t1.object == t2.object:
                         # Same value duplicated — not a conflict.
                         continue
-                    # Temporal scope: only flag pairs whose validity
-                    # intervals overlap. Atemporal triples (both
-                    # unbounded) overlap trivially, so the old
-                    # behaviour holds for pre-temporal data.
-                    if not intersects(interval_of(t1), interval_of(t2)):
+                    # Temporal scope: only flag pairs that genuinely
+                    # co-exist for a positive duration. Touching/"meets"
+                    # boundaries (clean succession) are NOT a conflict;
+                    # atemporal triples (both unbounded) overlap trivially.
+                    if not strictly_overlaps(interval_of(t1), interval_of(t2)):
                         continue
                     pair = tuple(sorted([t1.object, t2.object]))
                     flag = f"{prop}:{pair[0]}|{pair[1]}"
@@ -440,7 +439,7 @@ def _compile_inverse_functional(prop: str) -> Rule:
     scoping as the functional case."""
     rule_name = f"owl:InverseFunctionalProperty({prop})"
 
-    from kb.temporal import interval_of, intersects
+    from kb.temporal import interval_of, strictly_overlaps
 
     def fn(kb: KB) -> list[Derivation]:
         out: list[Derivation] = []
