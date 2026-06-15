@@ -115,7 +115,7 @@ The result is a system that:
 
 ## What's in the repository
 
-Five working demonstrations, each runnable in a few seconds without
+Six working demonstrations, each runnable in a few seconds without
 any setup, API keys, or external dependencies:
 
 ### A Wikipedia knowledge graph
@@ -187,7 +187,23 @@ classifications (Planet before 2006-08-24, Dwarf Planet from
 2006-08-24) are temporally disjoint and so NOT flagged as a conflict
 — both survive as valid facts of different eras.
 
-### Same reasoning engine, five different data shapes
+### A multi-framing demo (microtheories)
+
+A sixth suite for **non-temporal** framing — where the scope axis is a
+school of thought or legal framing rather than a historical era. The
+worked example carries one recession under **four incompatible schools
+of economics at once** (Keynesian, Austrian, monetarist, MMT): each is a
+microtheory with its own classification, cause, prescription, and unit of
+analysis, all on the same subject. Because conflict detection is
+scope-aware, the four incompatible classifications **coexist without being
+flagged as contradictions** — yet a contradiction asserted *within* a
+single school is still caught. A companion demo (`breakage.py`) shows the
+pathology: when microtheories **overlap** — a context-specific fact
+mis-scoped to global, or two contexts merged into one — the coherent body
+of knowledge collapses into contradiction, and re-separating the scopes
+repairs it. *(See `src/microtheory/`; uses the `Triple.scope` slot.)*
+
+### Same reasoning engine, six different data shapes
 
 Each demo above ships with a companion reasoning script
 (`src/kb/reason.py`, `src/ahab/reason.py`, `src/git_rag/reason.py`,
@@ -205,7 +221,7 @@ operations by automation safety. The distillation pipeline
 demonstrates the full purification sweep: noisy in, canonical out.
 
 The point: structured reasoning is domain-agnostic. The same code
-paths drive all five; what differs is how each domain projects its
+paths drive all six; what differs is how each domain projects its
 records into the standard triple form.
 
 ## How it works, in plain language
@@ -267,10 +283,12 @@ inheriting context lattice.)*
 provenance (stronger than Cyc's microtheory-level), bidirectional
 structure ↔ text via the cell-grammar layer, inspectable plain-text
 JSON artifacts, sub-millisecond runtime serving with no AI or JVM
-in the loop, edge deployability, four cross-domain demonstrations
-(Wikipedia / Moby-Dick / Git docs / astronomical distillation), a
-programmable distillation pipeline, the full Allen interval algebra
-as a first-class primitive, and 50 assertion-backed stress tests across six suites.
+in the loop, edge deployability, six cross-domain demonstrations
+(Wikipedia / Moby-Dick / Git docs / astronomical distillation /
+diachronic eras / multi-framing microtheories), a programmable
+distillation pipeline, the full Allen interval algebra as a
+first-class primitive, flat microtheory scoping on the Triple, and
+60+ assertion-backed stress scenarios across seven suites.
 
 ### Integration possibilities
 

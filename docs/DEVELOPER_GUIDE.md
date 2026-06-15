@@ -190,7 +190,7 @@ src/
 │                         Bundled stress-test suite (6 scenarios).
 │                         KEY FUNCS: purify, corroborate, prune_below
 │
-└── diachronic/           changing-patterns-of-thinking demo
+├── diachronic/           changing-patterns-of-thinking demo
     ├── corpus.py         the same subject (the atom) across six
     │                     historical eras — Greek atomism, Aristotelian
     │                     rejection, Newtonian, Daltonian, Rutherford/
@@ -211,6 +211,21 @@ src/
                           structure. Bundled stress-test suite
                           (5 scenarios).
                           KEY FUNCS: main, _stress_test
+│
+└── microtheory/          non-temporal framing-scope demo (the scope
+    │                     axis is a school of thought / framing, not an
+    │                     era — the non-temporal counterpart of diachronic)
+    ├── corpus.py         one recession under four incompatible schools
+    │                     of economics (Keynesian / Austrian / monetarist
+    │                     / MMT), each a Triple.scope microtheory.
+    ├── analyse.py        reads each microtheory (KB.in_scope), shows the
+    │                     four framings coexist without contradiction, and
+    │                     that a within-school contradiction is still caught.
+    ├── breakage.py       how OVERLAPPING microtheories break a body of
+    │                     knowledge (globalised fact / merged contexts),
+    │                     and how re-scoping repairs it.
+    └── test_scope.py     unit test for Triple.scope semantics + backward
+                          compatibility (10 checks).
 ```
 
 ---
@@ -988,6 +1003,10 @@ python src/distill/purify.py           # knowledge distillation + 6 stress tests
 python src/kb/ontology_owl.py          # HermiT DL reasoning + 7 stress tests
                                        #   (skips gracefully without owlready2 / Java)
 python src/diachronic/analyse.py       # changing-patterns-of-thinking + 5 stress tests
+# microtheory suite — run as modules from src/ (python -m):
+python -m microtheory.analyse          # four schools of economics, one recession
+python -m microtheory.breakage         # how overlapping microtheories break knowledge
+python -m microtheory.test_scope       # scope unit test (10 checks)
 ```
 
 Three assertion-backed stress suites pin engine properties:

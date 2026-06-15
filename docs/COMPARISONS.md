@@ -329,7 +329,7 @@ sit relative to each other?" The three tables below frame that.
 | **Cross-domain demonstrated** | Wikipedia, Moby-Dick utterance corpus, Git docs, astronomical multi-source purification — same engine, four shapes. CYC is one big general-purpose KB. |
 | **Programmable distillation pipeline** | Noisy multi-source corpus → clean canonical KB in one orchestrated call (`apply_with_conflict_resolution`). CYC has manual editorial processes. |
 | **Allen interval algebra as a first-class primitive** | Standard temporal formalism, exposed as named predicates + composition table. CYC has temporal reasoning but its representation is more ad hoc and the algebra isn't surfaced as cleanly. |
-| **50 assertion-backed stress scenarios across six test suites** | Pinning engine properties. Reproducibility check is `python src/kb/reason.py && python src/kb/ontology.py && python src/kb/conflict.py && python src/distill/purify.py && python src/diachronic/analyse.py` (plus `python src/kb/ontology_owl.py` if owlready2 + Java are installed). |
+| **60+ assertion-backed stress scenarios across seven test suites** | Pinning engine properties. Reproducibility check (run from `src/`) is `python -m kb.reason && python -m kb.ontology && python -m kb.conflict && python -m distill.purify && python -m diachronic.analyse && python -m microtheory.analyse && python -m microtheory.breakage && python -m microtheory.test_scope` (plus `python -m kb.ontology_owl` if owlready2 + Java are installed). |
 
 ### Where the gap actually sits now
 

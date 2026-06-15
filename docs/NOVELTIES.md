@@ -286,7 +286,7 @@ architecture provides.
 | Temporal validity | Full Allen interval algebra (13 atomic relations + composition table); engine propagates intervals through derivation chains | constraint propagation (AC-3) over Allen networks at scale |
 | Uncertainty | Confidence slot on every triple; noisy-AND / noisy-OR / min / pluggable combiners; engine propagates through derivations | full probabilistic Datalog (ProbLog-style inclusion-exclusion) |
 | Conflict resolution | Six policies (LatestWins / HighestConfidence / AuthorityWins / KeepAll / SurfaceForReview / ChainPolicy) over OWL-detected violations | per-tenant authority models; reviewer-UI integration |
-| Schema-as-data / multi-framing preservation | Atom across 2,500 years of natural philosophy in `src/diachronic/`: 6 paradigms with distinct IS_A classifications, the famous indivisibility reversal queryable as a structural event, 5 assertion-backed scenarios | scope axes beyond temporal (ideology, methodology, school of thought, legal perspective, cultural tradition) implemented as the same mechanism; tooling for browsing the framing graph |
+| Schema-as-data / multi-framing preservation | Atom across 2,500 years of natural philosophy in `src/diachronic/` (temporal scope axis): 6 paradigms with distinct IS_A classifications, the famous indivisibility reversal queryable as a structural event. **Non-temporal** framing now first-class via the `Triple.scope` slot with scope-aware conflict detection — `src/microtheory/` carries one recession under four schools of economics at once, plus a worked example of how overlapping microtheories break a body of knowledge | nested/inheriting microtheory lattice (contexts that specialise parents); tooling for browsing the framing graph |
 
 The architecture is concrete and implementable at small scale. The
 production-scale validation requires AI-driven extraction at 100M+
@@ -472,7 +472,7 @@ it has to do five things at once:
   5. Stay edge-deployable, license-able, and cheap at query time.
 
 SKEAR demonstrates that all five are simultaneously achievable
-with current technology. The 50 stress assertions and five cross-
+with current technology. The 60+ stress assertions and six cross-
 domain demos are the evidence; the architectural commitments
 (construction/runtime split, schema-as-data, per-fact provenance,
 soft-dependency adapter for full DL) are the mechanism.

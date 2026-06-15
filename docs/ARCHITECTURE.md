@@ -279,17 +279,21 @@ here in specific ways. Definitions:
   contradiction at any single scope.
 
 - **Scope axis** — the dimension along which a framing varies.
-  Temporal scope uses `valid_from` / `valid_to`. Other framings —
-  ideological, methodological, school-of-thought, legal-
-  perspective, cultural-tradition — use the same mechanism applied
-  to a non-temporal axis (the framing identifier becomes part of
-  the triple's scope).
+  Temporal scope uses `valid_from` / `valid_to`. Non-temporal
+  framings — ideological, methodological, school-of-thought, legal-
+  perspective, cultural-tradition — use the first-class `scope` slot
+  on the Triple (a flat microtheory tag; `None` = global). Conflict
+  detection is scope-aware, so incompatible values in different
+  scopes coexist without contradiction.
 
-- **Framing** — one community's, era's, or school's coherent way of
-  assembling a subject: which IS_A class applies, which properties
-  count, which relations organise it. Multiple framings can coexist
-  on the same subject; the differences are queryable rather than
-  averaged. See `src/diachronic/` for the worked example.
+- **Framing / microtheory** — one community's, era's, or school's
+  coherent way of assembling a subject: which IS_A class applies,
+  which properties count, which relations organise it. Multiple
+  framings can coexist on the same subject; the differences are
+  queryable (`KB.in_scope(scope)`) rather than averaged. See
+  `src/diachronic/` (temporal scope axis) and `src/microtheory/`
+  (non-temporal framing scope axis, plus a worked example of how
+  overlapping/mis-scoped microtheories break a body of knowledge).
 
 - **Paradigm shift** — a structural change in the framing of a
   subject: the IS_A class shifts, properties get added or rejected,
