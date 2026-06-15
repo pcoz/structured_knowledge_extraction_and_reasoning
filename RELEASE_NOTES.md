@@ -15,6 +15,45 @@ Datetime-stamped record of significant work. Times are local
 
 ## 2026-06-15
 
+### Feature: first-class microtheory / framing scope (`Triple.scope`)
+
+Added an optional `scope` tag to `Triple` (`src/kb/query.py` and
+`src/kb/extract.py`), the lightweight per-fact analogue of Cyc
+microtheories. `scope is None` = GLOBAL (holds in every context — the v1
+default, so existing KBs and JSON files load unchanged). A non-None scope
+means the fact holds only within that named context — a legal framing
+(plaintiff vs defendant), a standards interpretation, an ideological or
+methodological school.
+
+- **Scope-aware conflict detection.** Functional / inverse-functional
+  conflict detection now skips pairs that live in *different* non-global
+  scopes — they hold in different microtheories and are not in
+  contradiction (global facts can still conflict with anything). The same
+  subject can therefore carry incompatible classifications under different
+  framings without being flagged, and the disagreement is preserved as
+  queryable data.
+- **Query.** `KB.in_scope(scope)` returns the facts visible in a
+  microtheory (those tagged with it + global facts); `KB.scopes()` lists
+  the named microtheories present.
+- **Identity.** `scope` is part of a fact's identity — corroboration /
+  dedup keys include it, so the same `(s, r, o)` asserted in two framings
+  are kept distinct. `KB.load` accepts the new key and defaults it to
+  None for older JSON.
+
+Closes the microtheory gap previously noted in the README Cyc comparison.
+Worked example: `src/microtheory/` (see below). Regression: existing
+2,169-triple KB loads unchanged (all `scope=None`); purify demo unchanged
+(29-fact canonical KB); Pluto classification still correct; diachronic
+demo unaffected.
+
+### Fix: inverse-functional conflict detector used `intersects` after import swap
+
+A previous commit switched the conflict detectors' import to
+`strictly_overlaps` but the *inverse-functional* call site still called
+`intersects`, which would `NameError` on any inverse-functional conflict
+path. Corrected to `strictly_overlaps` (and verified on a shared-identifier
+case).
+
 ### Fix: year-boundary date ordering + succession-aware conflict detection
 
 Two related temporal-correctness fixes (`src/kb/temporal.py`,

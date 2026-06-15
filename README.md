@@ -252,12 +252,16 @@ adapter — full description-logic reasoning including cardinality
 restrictions, complex class expressions, and open-world inference.
 
 **What Cyc still has that SKEAR doesn't.** Higher-order logic
-(predicates as arguments), microtheories (facts holding in some
-contexts but not others), defeasible reasoning (defaults with
+(predicates as arguments), defeasible reasoning (defaults with
 exceptions), modal operators beyond time (knows / believes /
 desires), ~25M curated common-sense assertions, and decades of
 production-grade theorem-prover hardening. Each is a deep
-architectural feature in its own right.
+architectural feature in its own right. *(Microtheories — facts
+holding in some contexts but not others — are now partly covered: a
+`Triple` carries an optional `scope` tag and conflict detection is
+scope-aware, so incompatible framings coexist without contradiction.
+This is the lightweight per-fact form, not Cyc's full nested,
+inheriting context lattice.)*
 
 **What SKEAR has that Cyc doesn't.** Per-sentence textual
 provenance (stronger than Cyc's microtheory-level), bidirectional

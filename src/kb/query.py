@@ -46,6 +46,18 @@ class Triple:
     valid_to: str | None = None
     confidence: float = 1.0
 
+    # scope: an optional microtheory / framing / context tag. None means
+    # GLOBAL (the fact holds in every context — the v1 default, so old
+    # KBs load unchanged). A non-None scope means the fact holds only
+    # within that named context — e.g. a legal framing ("plaintiff" vs
+    # "defendant"), an ideological/standards interpretation, or a
+    # methodological school. Two functional values in DIFFERENT non-global
+    # scopes are NOT a conflict (they hold in different microtheories);
+    # see src/kb/ontology_rules.py. This is the lightweight, per-fact
+    # analogue of Cyc microtheories. `KB.in_scope(scope)` returns the
+    # facts visible in a microtheory (those tagged with it + global ones).
+    scope: str | None = None
+
 
 @dataclass
 class KB:
@@ -95,7 +107,7 @@ class KB:
         known = {
             "subject", "relation", "object",
             "source_article", "source_sentence_idx",
-            "valid_from", "valid_to", "confidence",
+            "valid_from", "valid_to", "confidence", "scope",
         }
         triples = [
             Triple(**{k: v for k, v in t.items() if k in known})
@@ -129,6 +141,19 @@ class KB:
             for rel, _, idx in self.in_edges.get(ent, [])
             if relation is None or rel == relation
         ]
+
+    def in_scope(self, scope: str | None) -> list[Triple]:
+        """Triples visible in microtheory `scope`: those tagged with that
+        scope PLUS global (scope is None) facts, which hold in every
+        context. `in_scope(None)` returns only the global facts. This is
+        how you query "what holds under framing X" without contaminating
+        the answer with another framing's facts."""
+        return [t for t in self.triples
+                if t.scope == scope or t.scope is None]
+
+    def scopes(self) -> set[str]:
+        """The set of named (non-global) microtheories present in the KB."""
+        return {t.scope for t in self.triples if t.scope is not None}
 
     def neighbours(self, entity: str) -> set[str]:
         ent = self.canonicalize(entity)

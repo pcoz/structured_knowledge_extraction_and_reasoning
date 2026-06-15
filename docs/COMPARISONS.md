@@ -310,7 +310,7 @@ sit relative to each other?" The three tables below frame that.
 | CYC capability | Why we can't match without new machinery |
 |---|---|
 | **Higher-order logic** (predicates over predicates, predicates as arguments) | Our schema is first-order Datalog. Real HOL needs a different rule language. |
-| **Microtheories / context logic** | Facts holding in some contexts but not others. We have no first-class "context" slot — facts are global. Temporal scoping is the closest analogue but it's one specific kind of context. General microtheories are their own architectural change. |
+| **Microtheories / context logic** (partly closed) | Facts holding in some contexts but not others. `Triple` now carries an optional `scope` tag (None = global) and conflict detection is scope-aware — incompatible values in different scopes coexist without contradiction, and `KB.in_scope()` queries a single microtheory. This is the lightweight, *flat* per-fact form; CYC's nested, inheriting microtheory lattice (contexts that specialise other contexts) is still richer. |
 | **Defeasible reasoning with explicit defaults** | "Birds fly, unless penguin" with proper override semantics. We can approximate via stratification (override rule at stratum 1) but not cleanly. CYC has it as a first-class construct. |
 | **Modal operators beyond time** (knows / believes / desires) | We have temporal modality only. Epistemic and doxastic modality aren't represented. |
 | **~25 million curated common-sense assertions** | CYC's actual KB content. We have demo-scale data plus the 1000-article Wikipedia slice. The architectural bet — that modern AI extraction closes this gap — remains an open hypothesis at scale. |
@@ -436,15 +436,18 @@ Verified end-to-end with seven assertion-backed stress scenarios in
 soft dependencies are absent — the rest of the engine keeps running
 unchanged on pure stdlib hosts.
 
-**Future direction — microtheories on the Triple schema.** CYC-style
-contexts could be added as a `context` slot on the Triple schema,
-parallel to the existing `valid_from` / `valid_to` temporal slots.
-Rules become context-aware (only fire on facts in the active
-context or its parents); the conflict detector becomes context-
-scoped ("Santa exists" in `ChristmasStoryMt` doesn't conflict with
-"Santa doesn't exist" in `EmpiricalMt`). The current engine accepts
-this extension cleanly — it's the same architectural pattern as the
-temporal slot, just along a different axis.
+**Implemented — flat microtheories on the Triple schema.** A `scope`
+slot now sits on the Triple schema, parallel to the `valid_from` /
+`valid_to` temporal slots, exactly as anticipated. The conflict
+detector is scope-aware ("Santa exists" in `ChristmasStoryMt` does not
+conflict with "Santa doesn't exist" in `EmpiricalMt`), and
+`KB.in_scope()` queries a single microtheory (its facts plus the
+global ones). See `src/microtheory/` for a worked example. What
+remains for full CYC parity is the *nesting/inheritance* lattice —
+contexts that specialise parent contexts so rules fire on a context
+or its ancestors. The current flat scope is the same architectural
+pattern as the temporal slot, just along a different axis; nesting is
+a further, additive step.
 
 ### Bottom line on combining
 

@@ -313,6 +313,10 @@ class Triple:
     object: str
     source_article: str
     source_sentence_idx: int
+    # Optional microtheory / framing / context tag (None = global). Kept
+    # in sync with kb.query.Triple so extractor output can carry a scope
+    # straight through to the KB. See kb.query.Triple for the semantics.
+    scope: str | None = None
 
 
 def extract_facts_from_sentence(
@@ -492,7 +496,9 @@ class KnowledgeGraph:
     seen: set[tuple] = field(default_factory=set)
 
     def add(self, t: Triple) -> bool:
-        key = (t.subject, t.relation, t.object)
+        # scope is part of identity so the same (s,r,o) asserted in
+        # different microtheories are kept as distinct facts.
+        key = (t.subject, t.relation, t.object, t.scope)
         if key in self.seen:
             return False
         self.seen.add(key)

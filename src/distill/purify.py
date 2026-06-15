@@ -123,7 +123,9 @@ def corroborate(kb: KB) -> tuple[KB, int]:
     # have already been consumed by the conflict resolver if it ran.
     groups: dict[tuple, list[Triple]] = defaultdict(list)
     for t in kb.triples:
-        key = (t.subject, t.relation, t.object, t.valid_from, t.valid_to)
+        # scope is part of identity: the same (s,r,o) in two microtheories
+        # are distinct facts and must not be merged across framings.
+        key = (t.subject, t.relation, t.object, t.valid_from, t.valid_to, t.scope)
         groups[key].append(t)
 
     merged: list[Triple] = []

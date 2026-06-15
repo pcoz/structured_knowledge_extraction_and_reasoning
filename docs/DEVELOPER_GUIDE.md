@@ -236,7 +236,18 @@ class Triple:
     valid_from: str | None = None   # ISO date; None = -infinity
     valid_to:   str | None = None   # ISO date; None = +infinity
     confidence: float = 1.0         # [0.0, 1.0]; default = certain
+    scope:      str | None = None   # microtheory/framing; None = global
 ```
+
+`scope` is a flat microtheory tag: `None` means the fact is global
+(holds in every context — the v1 default), a non-None value confines it
+to that named context (a legal framing, a standards interpretation, a
+school of thought). Conflict detection is scope-aware — two functional
+values in *different* non-global scopes don't conflict (different
+microtheories), while global facts can conflict with anything. Query a
+single microtheory with `KB.in_scope(scope)` (returns its facts plus the
+global ones) and list the present microtheories with `KB.scopes()`. See
+`src/microtheory/` for a worked example.
 
 Old JSON files (without the new fields) load unchanged via
 `KB.load`, which filters unknown keys and applies defaults for

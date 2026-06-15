@@ -402,6 +402,12 @@ def _compile_functional(prop: str) -> Rule:
                     if t1.object == t2.object:
                         # Same value duplicated — not a conflict.
                         continue
+                    # Microtheory scope: two values that hold in DIFFERENT
+                    # non-global contexts (framings) are not in contradiction
+                    # — they are simply scoped to different microtheories.
+                    if (t1.scope is not None and t2.scope is not None
+                            and t1.scope != t2.scope):
+                        continue
                     # Temporal scope: only flag pairs that genuinely
                     # co-exist for a positive duration. Touching/"meets"
                     # boundaries (clean succession) are NOT a conflict;
@@ -456,7 +462,11 @@ def _compile_inverse_functional(prop: str) -> Rule:
                 for t2 in ts[i + 1:]:
                     if t1.subject == t2.subject:
                         continue
-                    if not intersects(interval_of(t1), interval_of(t2)):
+                    # Different non-global microtheories don't conflict.
+                    if (t1.scope is not None and t2.scope is not None
+                            and t1.scope != t2.scope):
+                        continue
+                    if not strictly_overlaps(interval_of(t1), interval_of(t2)):
                         continue
                     pair = tuple(sorted([t1.subject, t2.subject]))
                     flag = f"{prop}:{pair[0]}|{pair[1]}"
