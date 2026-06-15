@@ -81,8 +81,23 @@ updated; `docs/DEVELOPER_GUIDE.md` temporal section notes the
 intersects-vs-strictly_overlaps distinction and the succession
 convention. Regression: the `distill.purify` demo is unchanged
 (29-fact canonical KB, 28 conflicts), the Pluto Planet-vs-DwarfPlanet
-classification remains correctly exempt, genuine same-period conflicts
-are still caught, and the diachronic demo is unaffected.
+classification remains correctly exempt, and genuine same-period
+conflicts are still caught. (Correction: this stride change also
+desynced the diachronic demo, which hardcoded the old `*366` scale for
+era boundaries — caught by a later end-to-end reproducibility run and
+fixed; see below.)
+
+### Fix: diachronic era bucketing desynced from the `_parse_date` stride
+
+`diachronic/analyse.py:_facts_in_era` scaled era-boundary years with a
+hardcoded `year * 366`, a copy of `_parse_date`'s old internal constant.
+After the year-boundary fix moved `_parse_date` to a 384 stride, triple
+dates and era boundaries were on different scales, so facts bucketed into
+the wrong eras and the "indivisible affirmed-then-rejected" assertion
+failed. Now derived from the temporal module's `_YEAR_STRIDE` (single
+source of truth; handles signed/BCE years). The Scenario-3 trajectory is
+correct again (affirmed Greek→Daltonian, rejected Rutherford→Quantum).
+Lesson logged: verify demos by exit code, not just tail output.
 
 ---
 
