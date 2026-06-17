@@ -1,12 +1,3 @@
-# SKEAR — License
-
-> **See also**: [README](README.md) ·
-> [docs/ARCHITECTURE](docs/ARCHITECTURE.md) ·
-> [docs/DEVELOPER_GUIDE](docs/DEVELOPER_GUIDE.md) ·
-> [docs/USE_CASES](docs/USE_CASES.md) ·
-> [docs/COMPARISONS](docs/COMPARISONS.md) ·
-> [docs/NOVELTIES](docs/NOVELTIES.md)
-
 MIT License
 
 Copyright (c) 2026 Edward Chalk
