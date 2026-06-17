@@ -11,9 +11,8 @@ construction time (extraction, curation); zero AI in the loop at
 query time.
 
 > **Copyright © Edward Chalk.** The architecture and source code are
-> the original work of Edward Chalk; copyright protection is asserted
-> to the extent permitted by law. Free for non-commercial use; for
-> commercial licensing see [LICENSE.md](LICENSE.md).
+> the original work of Edward Chalk, released under the
+> [MIT License](LICENSE.md).
 
 > **Repository:** *SKEAR* is the project's short name. The repository
 > slug stays `structured_knowledge_extraction_and_reasoning` — the
@@ -368,5 +367,4 @@ list in [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md).
   extension.
 - **[RELEASE_NOTES.md](RELEASE_NOTES.md)** — datetime-stamped record
   of what's been added and changed.
-- **[LICENSE.md](LICENSE.md)** — free for non-commercial use; for
-  commercial licensing contact `licensing [at] sapientronic [dot] ai`.
+- **[LICENSE.md](LICENSE.md)** — MIT License.

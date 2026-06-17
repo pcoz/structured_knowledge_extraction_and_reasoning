@@ -7,35 +7,24 @@
 > [docs/COMPARISONS](docs/COMPARISONS.md) ·
 > [docs/NOVELTIES](docs/NOVELTIES.md)
 
-**Copyright © Edward Chalk.** All rights reserved.
+MIT License
 
-SKEAR (Structured Knowledge Extraction And Reasoning) — the
-architecture, including the structured-extraction → indexing →
-inference → serving pipeline; the cell-grammar with shape × context
-× flavour decomposition; the interaction-type compact-selector
-encoding; the bidirectional structure ↔ text mapping; the causal
-state-tracking; and the unified provenance + reasoning + grounded-
-generation pipeline — and the source code implementing it are the
-original work of Edward Chalk. Copyright protection is asserted to
-the extent permitted by law. No patent protection is claimed or
-implied by this document.
+Copyright (c) 2026 Edward Chalk
 
-## Permitted use
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Free for non-commercial use. This includes personal research,
-academic study, education, and not-for-profit experimentation.
-Redistributions must retain this notice. Derivative works for
-non-commercial purposes carry the same license.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-## Commercial use
-
-Use that is part of a commercial product or service, or any internal
-tool of a for-profit enterprise, or research with the expectation of
-commercial application, requires a commercial license.
-
-For commercial licensing, contact **licensing [at] sapientronic [dot] ai**.
-
-## No warranty
-
-The software is provided as-is, without warranty of any kind. The
-author is not liable for any damages arising from its use.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
