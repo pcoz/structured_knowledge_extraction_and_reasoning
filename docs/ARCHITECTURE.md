@@ -356,8 +356,21 @@ The extractor (in `src/kb/extract.py`) does:
    DIED_DATE triples.
 8. **Curated patches**: hand-added or AI-extracted facts for gaps
    in the regex coverage. Same JSON output format.
-9. **Canonicalisation**: at the end of extraction, every triple's
-   subject and object are mapped through the alias map.
+9. **Normalisation + canonicalisation**: at the end of extraction each
+   triple's subject and object are normalised (`normalize_entity`:
+   strips possessive clitics, "Aristotle's" → "Aristotle", and collapses
+   duplicate-token spans, "Aristotle Aristotle" → "Aristotle"), greedy
+   subject-merge is repaired (`strip_trailing_subject`: "Nicomachean
+   Ethics Aristotle" → "Nicomachean Ethics"), then mapped through the
+   alias map. These remove span artefacts at their source rather than
+   downstream.
+10. **Validity invariant**: each triple is checked by `valid_triple`,
+    which rejects self-referential assertions on IRREFLEXIVE relations
+    (a thing cannot write / found / tutor / defeat *itself* — such a
+    triple is a span-merge artefact, not knowledge). The irreflexive set
+    is a **parameter** (`DEFAULT_ASYMMETRIC_RELATIONS`, supplied via
+    `main(asymmetric_relations=...)`), so this is corpus-general — a
+    chemistry, legal, or genealogical corpus passes its own set.
 
 Output: a list of `Triple` records, serialised to JSON.
 

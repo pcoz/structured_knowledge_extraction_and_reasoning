@@ -431,6 +431,33 @@ The next time `extract.py` is run, sentences matching this anchor
 emit `INFLUENCED_BY` triples. Existing query and reasoning code
 needs no changes.
 
+### Configure irreflexive relations for your corpus
+
+Extraction rejects self-referential triples on **irreflexive** relations
+— a thing cannot `WROTE` / `FOUNDED` / `TUTORED` / `DEFEAT` *itself*; such
+a triple is a span-merge artefact, not knowledge. This set is **not
+hardcoded to Wikipedia**. It is a parameter that defaults to
+`DEFAULT_ASYMMETRIC_RELATIONS` and is supplied per corpus:
+
+```python
+from kb.extract import main, DEFAULT_ASYMMETRIC_RELATIONS
+
+# augment the defaults for a chemistry corpus ...
+main(asymmetric_relations=DEFAULT_ASYMMETRIC_RELATIONS | {"SYNTHESIZES", "CATALYSES"})
+
+# ... or override entirely for a legal corpus
+main(asymmetric_relations={"SUPERSEDES", "CITES", "AMENDS"})
+```
+
+Irreflexivity is a per-relation **schema** property, so it belongs to the
+corpus/ontology, not to the extractor hardcode. Entity surface forms are
+also normalised at this stage — `normalize_entity` strips possessive
+clitics ("Aristotle's" → "Aristotle") and collapses duplicate-token spans
+("Aristotle Aristotle" → "Aristotle"), and `strip_trailing_subject`
+repairs greedy subject-merge ("Nicomachean Ethics Aristotle" →
+"Nicomachean Ethics") — all before alias canonicalisation, and all
+corpus-independent.
+
 ### Add a new inference rule
 
 In `src/kb/reason.py`, define a function returning a list of

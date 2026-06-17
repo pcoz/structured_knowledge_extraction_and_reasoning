@@ -482,9 +482,69 @@ def canonicalize_entity(name: str, alias_map: dict[str, str]) -> str:
     article-title form. Built from the set of article titles in the
     corpus.
     """
+    name = normalize_entity(name)
     if name in alias_map:
         return alias_map[name]
     return name
+
+
+_POSSESSIVE_RE = re.compile(r"['’]s\b|['’]$")
+
+def normalize_entity(name: str) -> str:
+    """Normalise an entity surface form before canonicalisation.
+
+    Fixes two extractor artefacts at their source rather than downstream:
+      * possessive clitics captured into the span ("Aristotle's" -> "Aristotle")
+        -- the token regex allows an inner apostrophe, so the clitic rides along;
+      * consecutive duplicate tokens ("Aristotle Aristotle", "Alchemy Alchemy")
+        -- chiefly from pronoun resolution inserting the article title adjacent
+        to an existing mention, then the greedy span merging them.
+    A proper noun does not carry a possessive clitic and does not repeat a token
+    consecutively, so both removals are normalisation, not guesswork.
+    """
+    name = _POSSESSIVE_RE.sub("", name).strip()
+    out = []
+    for tok in name.split():
+        if not out or out[-1].lower() != tok.lower():
+            out.append(tok)
+    return " ".join(out)
+
+
+def strip_trailing_subject(subject: str, obj: str) -> str:
+    """Repair greedy span over-extension that appended the article subject onto
+    the object (subject 'Aristotle', object 'Nicomachean Ethics Aristotle'
+    -> 'Nicomachean Ethics'). The trailing run equal to the subject is the
+    artefact of pronoun-resolution adjacency, not part of the object's name."""
+    st, ot = subject.split(), obj.split()
+    if len(ot) > len(st) and [w.lower() for w in ot[-len(st):]] == [w.lower() for w in st]:
+        return " ".join(ot[:-len(st)])
+    return obj
+
+
+# DEFAULT set of IRREFLEXIVE relations (a thing cannot bear them to ITSELF, so a
+# triple asserting subject == object is a span-merge artefact). This is a
+# reasonable default for biographical/encyclopaedic corpora -- it is NOT
+# universal. Irreflexivity is a per-relation SCHEMA property, so callers SUPPLY
+# or AUGMENT this set per corpus/ontology at extraction time
+# (main(asymmetric_relations=...)). A chemistry, legal, or genealogical corpus
+# passes its own set; nothing here is hardcoded to Wikipedia.
+DEFAULT_ASYMMETRIC_RELATIONS = frozenset({
+    "WROTE", "FOUNDED", "DISCOVERED", "DEVELOPED", "INVENTED", "BUILT", "PROVED",
+    "TUTORED", "TUTORED_BY", "DEFEATED", "CONQUERED", "RULER_OF", "SUCCEEDED",
+    "CHILD_OF", "DIED_OF", "DIED_IN", "BORN_IN", "MARRIED",
+})
+
+def valid_triple(subject: str, relation: str, obj: str,
+                 asymmetric_relations=DEFAULT_ASYMMETRIC_RELATIONS) -> bool:
+    """Reject self-referential triples on IRREFLEXIVE relations. The relation
+    set is a parameter (defaults to DEFAULT_ASYMMETRIC_RELATIONS) so SKEAR stays
+    corpus-general: pass `DEFAULT_ASYMMETRIC_RELATIONS | {"MY_REL", ...}` to
+    augment, or an entirely different set to override."""
+    if not subject or not obj:
+        return False
+    if relation in asymmetric_relations and subject.lower() == obj.lower():
+        return False
+    return True
 
 
 @dataclass
@@ -589,7 +649,11 @@ def format_path(path: list[Triple]) -> str:
     return "".join(chain)
 
 
-def main() -> None:
+def main(asymmetric_relations=None) -> None:
+    # Irreflexive-relation set is SUPPLIED here (corpus/ontology config), not
+    # hardcoded; defaults to DEFAULT_ASYMMETRIC_RELATIONS. Augment per corpus:
+    #   main(asymmetric_relations=DEFAULT_ASYMMETRIC_RELATIONS | {"SYNTHESIZES"})
+    asym = asymmetric_relations or DEFAULT_ASYMMETRIC_RELATIONS
     print("=" * 78)
     print("KB scale experiment — 1000 articles, AI-designed extraction")
     print("=" * 78)
@@ -646,11 +710,17 @@ def main() -> None:
         triples = extract_facts_from_article(title, raw)
         n_added = 0
         for t in triples:
-            # Canonicalize before adding.
+            # Normalise + canonicalise, repair greedy subject-merge, then
+            # enforce the validity invariant before adding.
+            subj = canonicalize_entity(t.subject, alias_map)
+            obj = canonicalize_entity(t.object, alias_map)
+            obj = canonicalize_entity(strip_trailing_subject(subj, obj), alias_map)
+            if not valid_triple(subj, t.relation, obj, asym):
+                continue
             t_canon = Triple(
-                subject=canonicalize_entity(t.subject, alias_map),
+                subject=subj,
                 relation=t.relation,
-                object=canonicalize_entity(t.object, alias_map),
+                object=obj,
                 source_article=t.source_article,
                 source_sentence_idx=t.source_sentence_idx,
             )
