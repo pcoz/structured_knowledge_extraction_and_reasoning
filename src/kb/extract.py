@@ -342,6 +342,13 @@ def extract_facts_from_sentence(
     ambiguous.
     """
     triples = []
+    # Optional dependency-parse path: when spaCy is installed it replaces the
+    # regex verb-anchor SVO heuristic (clause-aware; fixes cross-clause object
+    # mis-binding such as "Aristotle wrote treatises influencing Cicero"). The
+    # lifespan/date extraction below runs in BOTH paths.
+    _spacy_svo = extract_facts_spacy(text, article_title, sentence_idx)
+    if _spacy_svo is not None:
+        triples.extend(_spacy_svo)
     spans = find_entity_spans(text)
     # Sort by start offset so the "nearest entity" helpers below can
     # scan linearly and bail out early.
@@ -378,7 +385,7 @@ def extract_facts_from_sentence(
     # "taught" is X, not A).
     article_first_name = article_title.split()[0] if article_title else ""
 
-    for anchor in VERB_ANCHORS:
+    for anchor in (VERB_ANCHORS if _spacy_svo is None else ()):   # regex SVO only when no spaCy
         for m in anchor.regex.finditer(text):
             apos_start = m.start()
             apos_end = m.end()
@@ -547,6 +554,110 @@ def valid_triple(subject: str, relation: str, obj: str,
     return True
 
 
+# ----------------------------------------------------------------------
+# Optional dependency-parse extractor (spaCy).
+#
+# The regex + verb-anchor extractor above is the lightweight default and needs
+# no third-party NLP. When spaCy and a model are installed, this path replaces
+# the brittle "nearest capitalised span" object heuristic with a real dependency
+# parse: subject = nsubj of the verb, object = its dobj/agent, IN THE SAME CLAUSE
+# -- so "Aristotle wrote treatises influencing Cicero" yields (Aristotle, WROTE,
+# treatises-dropped-as-common-noun) and NEVER the cross-clause (Aristotle, WROTE,
+# Cicero). It is OPTIONAL: absent spaCy, callers fall back to the regex path, so
+# the default install stays light and deterministic.
+# ----------------------------------------------------------------------
+
+# Verb LEMMA -> relation. Domain-general defaults; SUPPLY or AUGMENT per corpus
+# (like DEFAULT_ASYMMETRIC_RELATIONS): a chemistry corpus passes
+# {"synthesize": "SYNTHESIZES", "catalyse": "CATALYSES"}.
+DEFAULT_VERB_RELATIONS = {
+    "write": "WROTE", "author": "WROTE", "publish": "WROTE",
+    "found": "FOUNDED", "establish": "FOUNDED", "cofound": "FOUNDED",
+    "discover": "DISCOVERED", "identify": "DISCOVERED",
+    "develop": "DEVELOPED", "design": "DEVELOPED",
+    "invent": "INVENTED", "build": "BUILT", "construct": "BUILT",
+    "prove": "PROVED", "demonstrate": "PROVED",
+    "tutor": "TUTORED", "teach": "TUTORED", "mentor": "TUTORED", "train": "TUTORED",
+    "defeat": "DEFEATED", "beat": "DEFEATED",
+    "conquer": "CONQUERED",
+    "marry": "MARRIED", "wed": "MARRIED",
+    "rule": "RULER_OF", "govern": "RULER_OF",
+    "succeed": "SUCCEEDED",
+}
+
+_SPACY_NLP = "untried"
+_PRON = {"he", "she", "they", "it", "i", "we", "you", "who", "his", "her", "their"}
+
+def _get_spacy():
+    """Lazily load spaCy + model once; return None if unavailable (-> fallback)."""
+    global _SPACY_NLP
+    if _SPACY_NLP == "untried":
+        try:
+            import spacy
+            _SPACY_NLP = spacy.load("en_core_web_sm")
+        except Exception:
+            _SPACY_NLP = None
+    return _SPACY_NLP
+
+def _entity_text(tok, doc):
+    """Proper-noun / named-entity phrase covering `tok`, normalised. None if the
+    token is not a proper noun / named entity (SKEAR builds an entity-to-entity
+    graph, so common-noun objects like 'treatises' are intentionally dropped)."""
+    for e in doc.ents:
+        if e.start <= tok.i < e.end:
+            return normalize_entity(e.text)
+    if tok.pos_ == "PROPN":
+        run = sorted([tok] + [c for c in tok.children
+                              if c.dep_ in ("compound", "flat") and c.pos_ == "PROPN"],
+                     key=lambda t: t.i)
+        return normalize_entity(" ".join(t.text for t in run))
+    return None
+
+def extract_facts_spacy(text, article_title, sentence_idx,
+                        verb_relations=None, asymmetric_relations=None):
+    """Dependency-parse SVO extraction. Returns a list of Triple, or None if
+    spaCy is unavailable (signalling the caller to use the regex extractor)."""
+    nlp = _get_spacy()
+    if nlp is None:
+        return None
+    vrel = verb_relations or DEFAULT_VERB_RELATIONS
+    asym = asymmetric_relations or DEFAULT_ASYMMETRIC_RELATIONS
+    doc = nlp(text)
+    out = []
+    for v in doc:
+        if v.pos_ not in ("VERB", "AUX"):
+            continue
+        rel = vrel.get(v.lemma_.lower())
+        if rel is None:
+            continue
+        subj_tok = obj_tok = None
+        passive = False
+        for c in v.children:
+            if c.dep_ in ("nsubj", "nsubjpass"):
+                subj_tok, passive = c, (c.dep_ == "nsubjpass")
+            elif c.dep_ in ("dobj", "obj", "attr", "oprd"):
+                obj_tok = c
+            elif c.dep_ == "agent":
+                obj_tok = next((g for g in c.children if g.dep_ in ("pobj", "obj")), obj_tok)
+        if subj_tok is None or obj_tok is None:
+            continue
+        # pronoun subject -> article title (the biographical bias, but parse-scoped)
+        if subj_tok.pos_ == "PRON" or subj_tok.lemma_.lower() in _PRON:
+            s_ent = article_title or None
+        else:
+            s_ent = _entity_text(subj_tok, doc)
+        o_ent = _entity_text(obj_tok, doc)
+        if not s_ent or not o_ent:
+            continue
+        if passive:                       # "X was tutored by Y" -> Y TUTORED X
+            s_ent, o_ent = o_ent, s_ent
+        if not valid_triple(s_ent, rel, o_ent, asym):
+            continue
+        out.append(Triple(subject=s_ent, relation=rel, object=o_ent,
+                          source_article=article_title, source_sentence_idx=sentence_idx))
+    return out
+
+
 @dataclass
 class KnowledgeGraph:
     triples: list[Triple] = field(default_factory=list)
@@ -649,6 +760,46 @@ def format_path(path: list[Triple]) -> str:
     return "".join(chain)
 
 
+def build_alias_map(titles, nlp=None):
+    """Build surface-form -> canonical-title aliases.
+
+    A single-token alias (surname / first-name) is registered ONLY when it is
+    UNAMBIGUOUS (claimed by exactly one title) and is not itself a title. When
+    spaCy is available, single-token aliases are generated ONLY from PERSON
+    titles, so organisation / work / event titles like "Academy Awards" do NOT
+    capture the generic token "Academy" (which previously clobbered Plato's
+    Academy). Without spaCy, only the LAST token (surname-like) is aliased,
+    never the generic first token -- a conservative, corpus-general default.
+    """
+    titles = [t for t in titles if is_meaningful_entity(t)]
+    title_set = set(titles)
+    alias_map = {t: t for t in titles}                 # a title is its own canonical
+    person = None
+    if nlp is not None:
+        person = set()
+        for t in titles:
+            doc = nlp(t)
+            if doc.ents and doc.ents[0].label_ == "PERSON" \
+                    and doc.ents[0].text.strip() == t.strip():
+                person.add(t)
+    claims: dict[str, set] = {}
+    for t in titles:
+        toks = t.split()
+        if len(toks) < 2:
+            continue
+        if person is not None:
+            cand = {toks[0], toks[-1]} if t in person else set()   # PERSON titles only
+        else:
+            cand = {toks[-1]}                                       # no spaCy: surname only
+        for tok in cand:
+            if is_meaningful_entity(tok) and tok not in ADJECTIVE_STOPWORDS:
+                claims.setdefault(tok, set()).add(t)
+    for tok, claimants in claims.items():
+        if len(claimants) == 1 and tok not in title_set:           # unambiguous + not a title
+            alias_map[tok] = next(iter(claimants))
+    return alias_map
+
+
 def main(asymmetric_relations=None) -> None:
     # Irreflexive-relation set is SUPPLIED here (corpus/ontology config), not
     # hardcoded; defaults to DEFAULT_ASYMMETRIC_RELATIONS. Augment per corpus:
@@ -677,26 +828,7 @@ def main(asymmetric_relations=None) -> None:
     # "Albert" → "Albert Einstein" and "Einstein" → "Albert Einstein".
     print("BUILDING ALIAS MAP")
     print("-" * 78)
-    alias_map: dict[str, str] = {}
-    for title, _ in articles:
-        if not is_meaningful_entity(title):
-            continue
-        tokens = title.split()
-        if len(tokens) >= 2:
-            # Last token (surname-ish)
-            if (tokens[-1] not in alias_map
-                    and is_meaningful_entity(tokens[-1])
-                    and tokens[-1] not in ADJECTIVE_STOPWORDS):
-                alias_map[tokens[-1]] = title
-            # First token (first-name-ish) — only for clearly-personal
-            # patterns. Heuristic: alias the first token only if not
-            # already used.
-            if (tokens[0] not in alias_map
-                    and is_meaningful_entity(tokens[0])
-                    and tokens[0] not in ADJECTIVE_STOPWORDS):
-                alias_map[tokens[0]] = title
-        # The title itself is always its own canonical.
-        alias_map[title] = title
+    alias_map = build_alias_map([title for title, _ in articles], nlp=_get_spacy())
     print(f"  Aliases registered: {len(alias_map):,}")
     print()
 

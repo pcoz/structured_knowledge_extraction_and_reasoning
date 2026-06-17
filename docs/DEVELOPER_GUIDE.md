@@ -458,6 +458,29 @@ repairs greedy subject-merge ("Nicomachean Ethics Aristotle" →
 "Nicomachean Ethics") — all before alias canonicalisation, and all
 corpus-independent.
 
+### Optional: dependency-parse extraction (spaCy)
+
+The default extractor is regex + verb-anchors (no third-party NLP). If spaCy and
+a model are installed:
+
+```bash
+pip install spacy && python -m spacy download en_core_web_sm
+```
+
+extraction automatically switches to a **dependency-parse SVO** path
+(`extract_facts_spacy`): subject = `nsubj` of the verb, object = its `dobj` /
+agent **in the same clause**. This fixes cross-clause object mis-binding
+("Aristotle wrote treatises influencing Cicero" no longer yields a spurious
+`Aristotle WROTE Cicero`) and handles passives ("X was tutored by Y" → `Y
+TUTORED X`). Absent spaCy it falls back to the regex path, so the default
+install stays light and deterministic. The verb→relation map is configurable,
+like the irreflexive set:
+
+```python
+from kb.extract import DEFAULT_VERB_RELATIONS
+vr = {**DEFAULT_VERB_RELATIONS, "synthesize": "SYNTHESIZES"}   # e.g. a chemistry corpus
+```
+
 ### Add a new inference rule
 
 In `src/kb/reason.py`, define a function returning a list of
