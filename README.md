@@ -98,6 +98,41 @@ The result is a system that:
   disagreement. **This is the architectural feature most directly
   pointed at the failure mode of current AI.**
 
+## Scope: what SKEAR is, what it isn't, and why that's the point
+
+SKEAR is, by design, a **crystal**: a small, deterministic knowledge engine
+whose every fact is traceable to the sentence it came from, whose reasoning
+shows its working, and which **refuses rather than guesses** at the edge of what
+it knows. Its standout virtues — provenance on facts *and* derivations, full
+determinism, refusal at the edge, and a transparent end-to-end pipeline in one
+readable codebase — are rare even among peers, and the extraction layer is now
+sharper still: clean facets, no possessive/duplicate fuzz, no self-referential
+triples, unambiguous aliasing, and clause-correct (optionally dependency-parsed)
+extraction.
+
+**What it is trying to be:** bounded, auditable, reproducible — a foundation you
+can fully inspect and trust within its limits.
+
+**What it is *not* trying to be:** a web-scale knowledge graph (Wikidata), a
+maximal-coverage neural extractor, a full first-order / OWL reasoner (Cyc), or a
+fluent general conversationalist (an LLM). It does not chase scale, coverage, or
+eloquence.
+
+**Why:** those goals are bought with statistical approximation, and
+approximation has no edges. A system optimised to always produce a plausible
+answer cannot also tell you, reliably, when it has *none*. A crystal is defined
+by its edges; blur them for breadth and it stops being a crystal.
+
+**Why that makes it useful — because it knows what it isn't.** A tool that knows
+its own boundary can be trusted *within* it: when SKEAR answers, the answer is
+sourced and reproducible; when it doesn't know, it says so, in a well-defined
+way. That is exactly what lets it be deployed where confident-but-wrong is
+unacceptable (law, medicine, finance, compliance, audit), and what makes it a
+sound foundation for softer layers built on top — because a foundation must be
+definite. Systems that try to be everything end up trustworthy nowhere; SKEAR
+is deliberately good at being *something*, and honest about the rest. Its worth
+comes from being definite, not big.
+
 ## Who this is for
 
 | If you... | This helps because... |
