@@ -58,6 +58,20 @@ class Triple:
     # facts visible in a microtheory (those tagged with it + global ones).
     scope: str | None = None
 
+    # seq: an optional ordinal giving this fact's POSITION within an
+    # ORDERED microtheory. None (the v1 default) means the scope is an
+    # unordered SET — the original microtheory semantics, so old KBs and
+    # every existing scope are unchanged. A non-None seq means the scope
+    # is a SEQUENCE and this fact is its `seq`-th member: that is how a
+    # *procedure* (an ordered list of instructional steps) is a single
+    # microtheory whose member facts have an intrinsic order, rather than
+    # a set whose order is incidental to source position. Retrieve a
+    # scope's facts in order with `KB.in_scope(scope, ordered=True)` or
+    # `KB.ordered_scope(scope)`. seq is independent of source_sentence_idx
+    # (where the fact came from in the source) — two facts ingested from
+    # different sources can still be steps 1 and 2 of one procedure.
+    seq: int | None = None
+
 
 @dataclass
 class KB:
@@ -107,7 +121,7 @@ class KB:
         known = {
             "subject", "relation", "object",
             "source_article", "source_sentence_idx",
-            "valid_from", "valid_to", "confidence", "scope",
+            "valid_from", "valid_to", "confidence", "scope", "seq",
         }
         triples = [
             Triple(**{k: v for k, v in t.items() if k in known})
@@ -142,14 +156,41 @@ class KB:
             if relation is None or rel == relation
         ]
 
-    def in_scope(self, scope: str | None) -> list[Triple]:
+    def in_scope(self, scope: str | None, ordered: bool = False) -> list[Triple]:
         """Triples visible in microtheory `scope`: those tagged with that
         scope PLUS global (scope is None) facts, which hold in every
         context. `in_scope(None)` returns only the global facts. This is
         how you query "what holds under framing X" without contaminating
-        the answer with another framing's facts."""
-        return [t for t in self.triples
-                if t.scope == scope or t.scope is None]
+        the answer with another framing's facts.
+
+        With `ordered=True` the result is sorted into the microtheory's
+        intrinsic SEQUENCE: facts carrying a `seq` ordinal come first, in
+        ascending `seq` order, with `source_sentence_idx` as a stable
+        tiebreak; facts with no `seq` (e.g. globals, or unordered members)
+        follow, in their original order. This is what lets a procedure —
+        an ordered microtheory — be read out as steps 1, 2, 3, … . When
+        no member carries a `seq`, ordered=True preserves input order, so
+        an unordered scope behaves exactly as before."""
+        visible = [t for t in self.triples
+                   if t.scope == scope or t.scope is None]
+        if not ordered:
+            return visible
+        # Stable sort: seq-tagged members ascend by seq; untagged keep
+        # their relative position by sorting them to the end on a sentinel.
+        SENTINEL = float("inf")
+        return sorted(
+            visible,
+            key=lambda t: (t.seq if t.seq is not None else SENTINEL,
+                           t.source_sentence_idx),
+        )
+
+    def ordered_scope(self, scope: str) -> list[Triple]:
+        """A procedure's OWN steps, in sequence — the scoped, `seq`-ordered
+        members only (globals excluded). Convenience wrapper over
+        `in_scope(scope, ordered=True)` for reading out one procedure
+        microtheory as an ordered instruction list."""
+        return [t for t in self.in_scope(scope, ordered=True)
+                if t.scope == scope]
 
     def scopes(self) -> set[str]:
         """The set of named (non-global) microtheories present in the KB."""

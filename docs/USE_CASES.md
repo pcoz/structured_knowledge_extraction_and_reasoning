@@ -8,6 +8,7 @@ And Reasoning) can address.
 > [DEVELOPER_GUIDE](DEVELOPER_GUIDE.md) ·
 > [COMPARISONS](COMPARISONS.md) ·
 > [NOVELTIES](NOVELTIES.md) ·
+> [ORDERED_MICROTHEORIES](ORDERED_MICROTHEORIES.md) ·
 > [LICENSE](../LICENSE.md)
 
 A practical inventory of LLM/RAG use cases that this architecture can

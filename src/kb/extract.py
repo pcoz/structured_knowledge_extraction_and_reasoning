@@ -318,6 +318,12 @@ class Triple:
     # straight through to the KB. See kb.query.Triple for the semantics.
     scope: str | None = None
 
+    # Optional position within an ORDERED microtheory (None = unordered
+    # set member, the v1 default). Kept in sync with kb.query.Triple so an
+    # extractor that recovers a procedure's step order can carry it
+    # straight through to the KB. See kb.query.Triple for the semantics.
+    seq: int | None = None
+
 
 def extract_facts_from_sentence(
     text: str, article_title: str, sentence_idx: int,

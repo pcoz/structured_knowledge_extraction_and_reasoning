@@ -6,10 +6,49 @@
 > [docs/USE_CASES](docs/USE_CASES.md) ·
 > [docs/COMPARISONS](docs/COMPARISONS.md) ·
 > [docs/NOVELTIES](docs/NOVELTIES.md) ·
+> [docs/ORDERED_MICROTHEORIES](docs/ORDERED_MICROTHEORIES.md) ·
 > [LICENSE](LICENSE.md)
 
 Datetime-stamped record of significant work. Times are local
 (Europe/Athens, UTC+3).
+
+---
+
+## 2026-06-18
+
+### Ordered microtheories, an executor, and a transpiler (computation-as-data)
+
+Microtheories gain an optional order (`Triple.seq`), turning a scoped *set* of
+facts into a scoped *sequence* — a procedure, or, when its members are opcodes,
+an executable program. This adds a third operational faculty alongside query and
+reason, and makes computation itself first-class, inspectable, cited knowledge.
+
+- **Core schema** — `Triple.seq` (optional, `None` = unordered, fully backward-
+  compatible) in `kb/query.py` and `kb/extract.py`; `KB.in_scope(scope,
+  ordered=True)` and `KB.ordered_scope(scope)` read a microtheory in step order.
+- **Executor** (`kb/execute.py`) — a stack VM over a CLOSED instruction set
+  (arithmetic, comparison, `LOAD`/`STORE`/`PUSH`, `DUP`/`SWAP`/`POP`, `JMP`/`JZ`,
+  `CALL` for composition/recursion, `RET`, `EMIT` for sequence output, and
+  `FETCH` to read the KB's own facts). Compile-once caching, opt-in trace,
+  refusal of unknown opcodes, and step/recursion budgets guaranteeing termination.
+- **Transpiler** (`kb/transpile.py`) — compiles a program to native Python
+  (basic-block + SSA codegen), ~32× the interpreter and ~4× native, with
+  automatic interpreter fallback for the unsupported subset. The triples stay
+  canonical; the generated Python is a derived, inspectable cache.
+- **Eight worked examples** in `src/microtheory/` (#3–#10): `procedure` (a
+  procedure is an ordered microtheory; precedence closure + cycle detection via
+  the real reasoner), `program` (code-as-data), `replicate` (exact replication of
+  real Python + honest efficiency), `showcase` (recursion, mutual recursion,
+  composition, FizzBuzz/primes via `EMIT`), `unified` (algorithm and data in one
+  KB), `complexity` (an O(M²)→O(M) join — a polynomial speedup from the intrinsic
+  index), `paradigm` (the provenance-native capstone), and `fraud` (end-to-end
+  fraud detection: query + a data-defined risk score + reasoned ring detection,
+  every flag cited). All assertion-backed.
+- **Docs** — new full guide `docs/ORDERED_MICROTHEORIES.md`; `NOVELTIES.md`
+  (novelty #7, computation-as-data) and its table/open-problems, `ARCHITECTURE.md`,
+  `DEVELOPER_GUIDE.md` (code map + example tree), `README.md`, and all `See also`
+  nav blocks cross-linked; `microtheory/test_scope.py` extended for ordered
+  semantics.
 
 ---
 

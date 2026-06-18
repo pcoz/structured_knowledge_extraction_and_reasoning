@@ -146,11 +146,13 @@ comes from being definite, not big.
 | Need an audit trail of facts that change over time — policies, regulations, product specs, employment records, drug labels | Triples carry validity windows; "what was true on date X" is a deterministic query |
 | Need to flag uncertain or disputed information rather than pretend it's settled | Confidence scores propagate through reasoning chains; disputed facts surface with their conflict signature attached |
 | Need to preserve multiple ways the same subject has been framed — different perspectives, eras, ideologies, methodologies, schools of thought, schools of practice | Each framing is preserved as structured data with its own schema, sources, and validity scope; the differences between framings are queryable rather than smoothed into one narrative |
+| Need a procedure, business rule, or calculation that is auditable, versionable, and runs deterministically | It becomes an *ordered microtheory* — scoped, cited, ordered triples — run by the executor; algorithm and data share one store and one provenance trail, and a transpiler compiles it to native code as a cache. See [docs/ORDERED_MICROTHEORIES.md](docs/ORDERED_MICROTHEORIES.md) |
 
 ## What's in the repository
 
-Seven working demonstrations, each runnable in a few seconds without
-any setup, API keys, or external dependencies:
+Seven cross-domain working demonstrations — each runnable in a few
+seconds without any setup, API keys, or external dependencies — plus a
+suite on **ordered microtheories** (procedures and programs as data):
 
 ### A Wikipedia knowledge graph
 
@@ -236,6 +238,23 @@ pathology: when microtheories **overlap** — a context-specific fact
 mis-scoped to global, or two contexts merged into one — the coherent body
 of knowledge collapses into contradiction, and re-separating the scopes
 repairs it. *(See `src/microtheory/`; uses the `Triple.scope` slot.)*
+
+### Ordered microtheories — procedures, programs, and code-as-data
+
+`Triple.seq` makes a microtheory an *ordered sequence*: a procedure, or —
+when its members are opcodes — an executable program. SKEAR's executor
+(`src/kb/execute.py`) runs it over a closed instruction set (including
+`CALL` for composition/recursion, `EMIT` for sequence output, and
+`FETCH` to read the KB's own facts), and a transpiler
+(`src/kb/transpile.py`) compiles it to native Python as a derived cache.
+Algorithms then live as scoped, cited triples beside the facts and rules,
+so the same engine queries, reasons over, and executes them with
+provenance intact. Eight worked examples in `src/microtheory/`
+(`procedure`, `program`, `replicate`, `showcase`, `unified`, `complexity`,
+`paradigm`, `fraud`) range from replicating real Python exactly to a
+polynomial-speedup join, a provenance-native capstone, and end-to-end
+fraud detection. Full guide:
+**[docs/ORDERED_MICROTHEORIES.md](docs/ORDERED_MICROTHEORIES.md)**.
 
 ### An ingestion / import-consistency demo
 
@@ -390,6 +409,12 @@ list in [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md).
 - **[docs/COMPARISONS.md](docs/COMPARISONS.md)** — how this compares
   to vector RAG, knowledge graphs, LLM-as-database, and other
   alternatives.
+- **[docs/ORDERED_MICROTHEORIES.md](docs/ORDERED_MICROTHEORIES.md)** —
+  the complete guide to *ordered microtheories*: representing
+  procedures, programs, and code-as-data as scoped, ordered, cited
+  triples, run by the executor (`kb.execute`) and compiled by the
+  transpiler (`kb.transpile`). Full opcode reference and the eight
+  worked examples (incl. end-to-end fraud detection).
 - **[docs/NOVELTIES.md](docs/NOVELTIES.md)** — what this contributes
   that isn't standard in the field. Closes with a substantial
   "What SKEAR contributes to the field of knowledge representation"

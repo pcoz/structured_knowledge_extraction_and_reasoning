@@ -9,6 +9,7 @@ technology.
 > [DEVELOPER_GUIDE](DEVELOPER_GUIDE.md) ·
 > [USE_CASES](USE_CASES.md) ·
 > [NOVELTIES](NOVELTIES.md) ·
+> [ORDERED_MICROTHEORIES](ORDERED_MICROTHEORIES.md) ·
 > [LICENSE](../LICENSE.md)
 
 A side-by-side with the main alternatives. Each section: what the

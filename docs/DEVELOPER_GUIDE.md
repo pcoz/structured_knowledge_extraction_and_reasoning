@@ -5,6 +5,7 @@
 > [USE_CASES](USE_CASES.md) ·
 > [COMPARISONS](COMPARISONS.md) ·
 > [NOVELTIES](NOVELTIES.md) ·
+> [ORDERED_MICROTHEORIES](ORDERED_MICROTHEORIES.md) ·
 > [LICENSE](../LICENSE.md)
 
 Practical reference for working with the SKEAR codebase: code map,
@@ -75,6 +76,21 @@ src/
 │   │                                (propagate_confidence/temporal flags),
 │   │                                kb_has, stress_test,
 │   │                                individual r1..r11 rules
+│   │
+│   ├── execute.py        Executor faculty: run an ORDERED microtheory as a
+│   │                     program (closed opcode set incl. CALL/EMIT/FETCH;
+│   │                     compile-once cache; termination + recursion guards).
+│   │                     KEY CLASSES: ExecResult, ExecError
+│   │                     KEY FUNCS: run, validate, OPCODES
+│   │                     See docs/ORDERED_MICROTHEORIES.md.
+│   │
+│   ├── transpile.py      Compile an ordered-microtheory program to native
+│   │                     Python (basic-block + SSA codegen) for ~native
+│   │                     speed; interpreter fallback for the unsupported
+│   │                     subset. The triples stay canonical; the Python is
+│   │                     a derived, inspectable cache.
+│   │                     KEY FUNCS: run_compiled, compile_program,
+│   │                                to_python_source
 │   │
 │   ├── temporal.py       Interval algebra. The full 13-relation Allen
 │   │                     calculus + composition table, plus the
@@ -224,8 +240,30 @@ src/
     ├── breakage.py       how OVERLAPPING microtheories break a body of
     │                     knowledge (globalised fact / merged contexts),
     │                     and how re-scoping repairs it.
-    └── test_scope.py     unit test for Triple.scope semantics + backward
-                          compatibility (10 checks).
+    ├── test_scope.py     unit test for Triple.scope + Triple.seq semantics
+    │                     + backward compatibility (ordered microtheories).
+    ├── procedure.py      an ORDERED microtheory is a procedure: read in
+    │                     seq order; procedures-as-framings (diff + scope-
+    │                     aware conflict); precedence closure + cycle
+    │                     detection via the real fixpoint reasoner.
+    ├── program.py        an ordered microtheory as a SUBSTITUTE FOR CODE:
+    │                     opcodes as steps, run by the core executor;
+    │                     edit-behaviour-as-data; unknown opcode refused.
+    ├── replicate.py      replicate real Python (Euclid GCD loop; branch
+    │                     ladder) EXACTLY, and measure the honest
+    │                     efficiency gain on a family of N rules.
+    ├── showcase.py       the expanded opcodes: mutual recursion, recursion
+    │                     (fib), composition (lcm CALLs gcd), and EMIT
+    │                     (FizzBuzz, primes) — each matched to Python.
+    ├── unified.py        no disconnect: a program FETCHes the KB's own
+    │                     facts, its result re-enters as a fact (one store).
+    ├── complexity.py     a polynomial speedup (O(M^2)->O(M)) on a 2-hop
+    │                     join, from the KB's intrinsic index.
+    ├── paradigm.py       capstone: facts, a rule, and programs in one KB —
+    │                     query + reason + execute, provenance unbroken.
+    └── fraud.py          applied capstone: fraud detection — query txns, a
+                          data-defined risk score (FETCHes policy), and a
+                          reasoned shared-device ring; every flag cited.
 │
 └── ingestion/           import-consistency demo: importing self-
     │                     contradictory data and locating the source's
@@ -264,6 +302,8 @@ class Triple:
     valid_to:   str | None = None   # ISO date; None = +infinity
     confidence: float = 1.0         # [0.0, 1.0]; default = certain
     scope:      str | None = None   # microtheory/framing; None = global
+    seq:        int | None = None   # position in an ORDERED microtheory;
+                                    # None = unordered set member (v1)
 ```
 
 `scope` is a flat microtheory tag: `None` means the fact is global
@@ -275,6 +315,29 @@ microtheories), while global facts can conflict with anything. Query a
 single microtheory with `KB.in_scope(scope)` (returns its facts plus the
 global ones) and list the present microtheories with `KB.scopes()`. See
 `src/microtheory/` for a worked example.
+
+`seq` makes a microtheory **ordered** — a *sequence* instead of a set.
+`None` (the default) preserves the v1 set semantics; a non-None `seq`
+gives a fact its position in the scope's sequence. Read a procedure out
+in order with `KB.in_scope(scope, ordered=True)` (seq-tagged members
+ascend by `seq`, untagged/globals follow) or `KB.ordered_scope(scope)`
+(the scope's own steps only, in order). This is how a procedure — recipe,
+runbook, protocol, algorithm — is one microtheory whose members have an
+intrinsic order. When the members are opcodes, the ordered microtheory is
+an executable program: run it with the core executor —
+
+```python
+from kb.execute import run
+result = run(kb, scope="my_program", inputs={"x": 10})
+print(result.value, result.steps)   # value + a cited per-step trace
+```
+
+The executor (`kb.execute`) is a stack VM with a CLOSED opcode set
+(PUSH/LOAD/STORE, arithmetic, comparison, JMP/JZ, RET), a step budget
+that guarantees termination, and a refusal for any unknown opcode (no
+`eval`, no host access). See `src/microtheory/{procedure,program,
+replicate}.py` for worked examples, including exact replication of real
+Python and the efficiency analysis.
 
 Old JSON files (without the new fields) load unchanged via
 `KB.load`, which filters unknown keys and applies defaults for

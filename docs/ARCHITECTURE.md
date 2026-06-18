@@ -5,6 +5,7 @@
 > [USE_CASES](USE_CASES.md) ·
 > [COMPARISONS](COMPARISONS.md) ·
 > [NOVELTIES](NOVELTIES.md) ·
+> [ORDERED_MICROTHEORIES](ORDERED_MICROTHEORIES.md) ·
 > [LICENSE](../LICENSE.md)
 
 SKEAR (**S**tructured **K**nowledge **E**xtraction **A**nd
@@ -285,6 +286,29 @@ here in specific ways. Definitions:
   on the Triple (a flat microtheory tag; `None` = global). Conflict
   detection is scope-aware, so incompatible values in different
   scopes coexist without contradiction.
+
+- **Ordered microtheory (a procedure / program)** — a microtheory is
+  normally a *set* of co-scoped facts. The optional `seq` slot on the
+  Triple makes it a *sequence*: the scope's members carry an intrinsic
+  order. `None` (the default) keeps the v1 set semantics; a non-`None`
+  `seq` makes the scope a procedure read in step order via
+  `KB.in_scope(scope, ordered=True)` / `KB.ordered_scope(scope)`. This
+  represents recipes, runbooks, clinical protocols, and algorithms as
+  first-class knowledge — and, when the members are opcodes, an
+  *executable program* (see the executor faculty below). Worked
+  examples: `src/microtheory/{procedure,program,replicate}.py`.
+
+- **The executor faculty (`kb.execute`)** — the third operational
+  faculty alongside query (lookup/traversal) and reason (deductive
+  inference): it *runs* an ordered microtheory whose members are
+  opcodes as a program (*structure → computation*). A small stack VM
+  with a CLOSED instruction set (arithmetic, comparison, load/store,
+  jumps, return), a step budget guaranteeing termination, and a cited
+  per-step trace. Unknown opcodes are refused before execution — no
+  `eval`, no host access. This lets SKEAR stand in for code where the
+  logic is a sequence of operations: the algorithm becomes inspectable,
+  versionable, diffable, and reason-over-able data, run deterministically
+  and safe-by-construction.
 
 - **Framing / microtheory** — one community's, era's, or school's
   coherent way of assembling a subject: which IS_A class applies,

@@ -8,6 +8,7 @@ Extraction And Reasoning).
 > [DEVELOPER_GUIDE](DEVELOPER_GUIDE.md) ·
 > [USE_CASES](USE_CASES.md) ·
 > [COMPARISONS](COMPARISONS.md) ·
+> [ORDERED_MICROTHEORIES](ORDERED_MICROTHEORIES.md) ·
 > [LICENSE](../LICENSE.md)
 
 What this project contributes that isn't standard. Each item below
@@ -22,7 +23,7 @@ GraphRAG, Wikidata, OpenIE, FrameNet, CYC, ...) see
 
 ## At a glance
 
-Six architectural contributions, summarised in one sentence each:
+Seven architectural contributions, summarised in one sentence each:
 
 1. **Cell-grammar with `shape × context × flavour`** — adds a third
    axis (flavour: speaker style / corpus voice) to frame-semantics,
@@ -54,6 +55,16 @@ Six architectural contributions, summarised in one sentence each:
    mode of LLM-based AI, which trains on the union of all framings
    and produces a single smoothed answer with no internal structure
    for "this view vs that view."
+7. **Computation-as-data — ordered microtheories and an executor.** An
+   optional order slot (`Triple.seq`) makes a microtheory a *sequence* —
+   a procedure, or, when its members are opcodes, an executable program
+   run by a closed-instruction-set executor (`kb.execute`). Algorithms
+   then live in the same scoped, cited triple shape as facts and rules,
+   so one engine queries, reasons over, AND executes them, with
+   provenance unbroken from input data through computation to derived
+   facts; a transpiler (`kb.transpile`) compiles the canonical triples to
+   native Python as a derived cache. The database, the schema, the rules,
+   and the code become one inspectable, auditable medium.
 
 Each is explained in detail below.
 
@@ -245,6 +256,54 @@ event, not narrative summary.
 
 ---
 
+## 7. Computation-as-data: ordered microtheories and an executor
+
+**What it is**: a microtheory (a scoped set of facts) gains an optional
+order via `Triple.seq`, becoming a *sequence*. A sequence of steps is a
+procedure; a sequence of operations is a program. SKEAR's executor
+(`src/kb/execute.py`) runs such a program over a closed instruction set
+(arithmetic, comparison, load/store, stack ops, `JMP`/`JZ`, `CALL`, `RET`,
+`EMIT`, and `FETCH` — which reads the KB's own facts), and a transpiler
+(`src/kb/transpile.py`) compiles it to native Python.
+
+**Prior art**:
+- Lisp / homoiconicity (McCarthy 1960) — code as data, but as
+  S-expressions, without provenance, scope, or a reasoning layer.
+- Datalog / logic programming — rules as data, but not imperative
+  procedures with control flow, nor a queryable instruction stream.
+- Stored procedures / rules engines — logic stored near the data, but in
+  a separate language opaque to the query and reasoning layer.
+
+**What's new here**:
+- **Code, data, schema, and rules share one representation** — scoped,
+  ordered, cited triples — so the boundary between the database, the
+  schema, the rules engine, and the application code disappears.
+- **The system reasons about its own algorithms.** Because a procedure is
+  data, the machinery that derives facts can prove properties of programs
+  (precedence closure, cycle/linearizability, data dependencies):
+  computation is an object of inquiry, not an opaque verb.
+- **Unbroken provenance through computation.** `FETCH` reads cited facts;
+  the result re-enters as a cited fact the next rule consumes — end-to-end
+  auditability no code-over-database stack provides.
+- **Multi-framed, versioned algorithms.** Two versions of a procedure are
+  two microtheories that coexist and are diffable, exactly as for
+  contested facts.
+- **Meaning and performance separated.** The triples are the canonical,
+  inspectable source; speed (interpret → transpile → native) is a derived,
+  regenerable cache — auditability is never traded for speed.
+- **Safe by construction.** A closed opcode set (no `eval`, no host
+  access), refusal of unknown opcodes, and step/recursion budgets that
+  guarantee termination.
+
+Eight assertion-backed worked examples (#3–#10) live in `src/microtheory/`
+(`procedure`, `program`, `replicate`, `showcase`, `unified`, `complexity`,
+`paradigm`, `fraud`), including exact replication of real Python, an
+O(M²)→O(M) join, a provenance-native capstone, and end-to-end fraud
+detection. Full guide:
+[ORDERED_MICROTHEORIES.md](ORDERED_MICROTHEORIES.md).
+
+---
+
 ## Why no one has built this before
 
 For each novelty above, parts have been attempted multiple times.
@@ -287,6 +346,7 @@ architecture provides.
 | Uncertainty | Confidence slot on every triple; noisy-AND / noisy-OR / min / pluggable combiners; engine propagates through derivations | full probabilistic Datalog (ProbLog-style inclusion-exclusion) |
 | Conflict resolution | Six policies (LatestWins / HighestConfidence / AuthorityWins / KeepAll / SurfaceForReview / ChainPolicy) over OWL-detected violations | per-tenant authority models; reviewer-UI integration |
 | Schema-as-data / multi-framing preservation | Atom across 2,500 years of natural philosophy in `src/diachronic/` (temporal scope axis): 6 paradigms with distinct IS_A classifications, the famous indivisibility reversal queryable as a structural event. **Non-temporal** framing now first-class via the `Triple.scope` slot with scope-aware conflict detection — `src/microtheory/` carries one recession under four schools of economics at once, plus a worked example of how overlapping microtheories break a body of knowledge | nested/inheriting microtheory lattice (contexts that specialise parents); tooling for browsing the framing graph |
+| Computation-as-data (ordered microtheories + executor) | `Triple.seq` makes a microtheory an ordered sequence; `kb.execute` runs it as a program (closed opcode set incl. `CALL`/`EMIT`/`FETCH`; termination + recursion guards); `kb.transpile` compiles to native Python (~32× the interpreter) with interpreter fallback; eight worked examples in `src/microtheory/` (#3–#10) incl. exact replication of real Python, a polynomial-speedup join, the provenance-native capstone, and end-to-end fraud detection | strings/collections in the VM; full Relooper for irreducible CFGs; native (C/LLVM/WASM) lowering |
 
 The architecture is concrete and implementable at small scale. The
 production-scale validation requires AI-driven extraction at 100M+
@@ -364,10 +424,10 @@ without disturbing it. The architectural promise doesn't degrade
 as the capability surface grows; each new feature lives inside
 the construction half.
 
-### The six things SKEAR contributes
+### The seven things SKEAR contributes
 
-Reading the six numbered novelties above as a single body of
-work, six specific contributions to KR-as-a-field stand out:
+Reading the seven numbered novelties above as a single body of
+work, seven specific contributions to KR-as-a-field stand out:
 
   1. **A reconciliation of symbolic and sub-symbolic KR.** The
      construction/runtime split lets AI carry the load LLMs are
@@ -422,6 +482,16 @@ work, six specific contributions to KR-as-a-field stand out:
      of RLHF, retrieval augmentation, or system-prompt
      scaffolding closes the gap.
 
+  7. **Computation as first-class, auditable knowledge.** With
+     ordered microtheories and the executor, an algorithm is not
+     opaque code beside the data — it is scoped, ordered, cited
+     triples in the same store, so one engine queries, reasons
+     over, and executes it, with provenance unbroken from inputs
+     through computation to derived facts. The database, the
+     schema, the rules, and the code become one inspectable
+     medium — the structural counter to both the code/data split
+     and the LLM black box.
+
 ### What remains genuinely hard
 
 Honest about what's open:
@@ -441,7 +511,12 @@ Honest about what's open:
     axis mechanism is a partial answer — it handles temporal,
     ideological, methodological, and similar axes. Full CYC-style
     nested context lattices with import / inheritance / inter-
-    context logic would be its own architectural extension.
+    context logic would be its own architectural extension. Ordered
+    microtheories (`Triple.seq`) and the executor's `CALL` (one
+    procedure invoking another) are a concrete step toward this —
+    procedure composition *is* microtheory composition — but full
+    inheritance / lifting between contexts remains future work. See
+    [ORDERED_MICROTHEORIES.md](ORDERED_MICROTHEORIES.md).
 
   - **Defeasible reasoning.** Defaults with exceptions ("birds
     fly, unless penguin") as a first-class construct. Stratified
