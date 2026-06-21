@@ -25,6 +25,8 @@ python -m microtheory.replicate     # replicate real Python; measure the efficie
 python -m microtheory.showcase      # recursion, mutual recursion, composition, EMIT
 python -m microtheory.unified       # the algorithm and the data in one KB (no disconnect)
 python -m microtheory.parametric    # one rule, every entity: FETCH @var|relation
+python -m microtheory.bitwise       # masks/flags/sets: AND OR XOR NOT SHL SHR over cited facts
+python -m microtheory.decision_engine  # GRAND capstone: ALL faculties in one decision engine
 python -m microtheory.complexity    # a polynomial (O(M^2)->O(M)) speedup from the index
 python -m microtheory.paradigm      # capstone: query + reason + execute on one KB
 python -m microtheory.fraud         # applied capstone: fraud detection, every flag cited
@@ -202,6 +204,9 @@ written `before -- after` (top of stack on the right).
 | `DIV` | — | `a b -- a/b` | division (by zero → `ExecError`) |
 | `MOD` | — | `a b -- a%b` | remainder (by zero → `ExecError`) |
 | `LT LE GT GE EQ NE` | — | `a b -- (1.0/0.0)` | comparisons; push `1.0` if true else `0.0` |
+| `AND OR XOR` | — | `a b -- (a OP b)` | bitwise on integers — masks, flags, sets (fractional operand → `ExecError`) |
+| `SHL SHR` | — | `a b -- a«b / a»b` | shift `a` by `b` bits (`b ≥ 0`) — build/extract bit-fields |
+| `NOT` | — | `a -- ~a` | bitwise complement, two's-complement (`NOT n == -(n+1)`) — see §8c |
 | `DUP` | — | `x -- x x` | duplicate the top |
 | `POP` | — | `x --` | discard the top |
 | `SWAP` | — | `a b -- b a` | exchange the top two |
@@ -400,6 +405,32 @@ Two properties worth their own demonstration (`microtheory/parametric.py`):
 
 An unset variable is a controlled refusal (`ExecError`), not a wrong answer — the
 same safe-by-construction stance as an unknown opcode.
+
+## 8c. Bitwise opcodes — flags, masks, and sets
+
+`AND`, `OR`, `XOR`, `NOT`, `SHL`, `SHR` are the integer-logic siblings of the
+arithmetic ops. They matter because a great deal of real knowledge is encoded as
+**bit flags and masks** — permission/entitlement sets, eligibility checklists,
+risk-category sets, weekly schedules, packed bit-fields — and the rules over them
+are bitwise. A bit mask stores a whole SET in one number, and then:
+
+| technique | op | example rule |
+|-----------|----|--------------|
+| set membership ("has capability") | `AND` ... `≠0` | `role.PERMISSIONS AND action.REQUIRES` |
+| set union ("combine roles") | `OR` | `r1.PERMISSIONS OR r2.PERMISSIONS` |
+| superset ("has ALL required") | `AND` then `==` | `(SUBMITTED AND REQ) == REQ` |
+| symmetric difference ("what changed") | `XOR` | `a.FLAGS XOR b.FLAGS` |
+| clear a bit ("suspend one capability") | `NOT` + `AND` | `perms AND (NOT bit)` |
+| build a one-bit mask ("open on day d") | `SHL` | `OPEN_DAYS AND (1 SHL d)` |
+| unpack a packed field | `SHR` + `AND` | `(card SHR 4) AND 0xF` |
+
+Bitwise ops are **integer** logic: operands are coerced to whole numbers and a
+fractional operand is REFUSED (`ExecError`), not silently floored — the same
+safe-by-construction stance as DIV-by-zero. `NOT` is two's-complement and
+width-free (`NOT n == -(n+1)`), so `x AND (NOT mask)` clears exactly `mask`'s bits.
+A shift count must be `≥ 0`. Worked example: `microtheory/bitwise.py`, computing
+all of the above over cited domain facts (each answer traced to the policy the
+masks came from).
 
 ---
 

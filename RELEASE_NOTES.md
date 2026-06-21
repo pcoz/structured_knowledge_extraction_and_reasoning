@@ -14,6 +14,43 @@ Datetime-stamped record of significant work. Times are local
 
 ---
 
+## 2026-06-21 (later)
+
+### Bitwise opcodes — flags, masks, and sets
+
+The executor gains a bitwise opcode family — `AND`, `OR`, `XOR`, `NOT`, `SHL`,
+`SHR` — the integer-logic sibling of the arithmetic ops. A great deal of real
+business and regulatory knowledge is encoded as bit flags and masks (permission /
+entitlement sets, eligibility checklists, risk-category sets, schedules, packed
+fields), and the rules over them are bitwise; they could not previously live as
+ordered microtheories. Now they can, with the same closed-set / deterministic /
+terminating guarantees.
+
+- **Executor** (`kb/execute.py`) — `AND`/`OR`/`XOR`/`NOT`/`SHL`/`SHR` added to the
+  closed `OPCODES` set (23 → 29 opcodes). Bitwise is **integer** logic: operands
+  are coerced to whole numbers and a **fractional operand is REFUSED** (`ExecError`),
+  not silently floored — the same stance as DIV-by-zero. `NOT` is two's-complement
+  and width-free (`NOT n == -(n+1)`), so `x AND (NOT mask)` clears exactly the mask;
+  shift counts must be `>= 0`. New self-tests cover each op, the clear-bits idiom,
+  fractional-operand refusal, and negative-shift refusal.
+- **Transpiler** (`kb/transpile.py`) — the bitwise ops join `CALL`/`FETCH`/`EMIT`
+  in `_UNSUPPORTED`: they fall back to the interpreter (whose integer-coercion /
+  refusal semantics the float-native transpiled form would not preserve exactly).
+- **Worked examples** —
+  `microtheory/bitwise.py` (#12): flags / masks / sets as cited knowledge —
+  entitlement (`AND`), role union (`OR`), suspend (`NOT`+`AND`), what-changed
+  (`XOR`), eligibility superset (`AND`+`==`), schedule (`SHL`), packed-field unpack
+  (`SHR`) — each computed over cited domain facts.
+  `microtheory/decision_engine.py` (#13): the GRAND capstone — a self-contained
+  clinical prescribing decision engine using EVERY faculty at once (query; reason
+  to fixpoint; execute with bitwise entitlement, recursive dosing, and an EMITted
+  audit trail; conflict detection; transpile), every answer cited.
+- **Docs** — `docs/ORDERED_MICROTHEORIES.md` (opcode table + new §8c),
+  `docs/DEVELOPER_GUIDE.md`, `docs/NOVELTIES.md`, `README.md` updated; both new
+  examples cross-linked into the run lists.
+
+---
+
 ## 2026-06-21
 
 ### Parametric `FETCH` — one rule, every entity

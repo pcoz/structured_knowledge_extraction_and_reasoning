@@ -262,7 +262,8 @@ event, not narrative summary.
 order via `Triple.seq`, becoming a *sequence*. A sequence of steps is a
 procedure; a sequence of operations is a program. SKEAR's executor
 (`src/kb/execute.py`) runs such a program over a closed instruction set
-(arithmetic, comparison, load/store, stack ops, `JMP`/`JZ`, `CALL`, `RET`,
+(arithmetic, comparison, bitwise `AND`/`OR`/`XOR`/`NOT`/`SHL`/`SHR` for
+flags/masks/sets, load/store, stack ops, `JMP`/`JZ`, `CALL`, `RET`,
 `EMIT`, and `FETCH` — which reads the KB's own facts, by a literal subject
 or a parametric `@var` so one rule serves any entity), and a transpiler
 (`src/kb/transpile.py`) compiles it to native Python.

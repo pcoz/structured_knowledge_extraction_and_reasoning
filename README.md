@@ -243,18 +243,20 @@ repairs it. *(See `src/microtheory/`; uses the `Triple.scope` slot.)*
 
 `Triple.seq` makes a microtheory an *ordered sequence*: a procedure, or —
 when its members are opcodes — an executable program. SKEAR's executor
-(`src/kb/execute.py`) runs it over a closed instruction set (including
+(`src/kb/execute.py`) runs it over a closed instruction set (arithmetic,
+comparison, **bitwise** `AND/OR/XOR/NOT/SHL/SHR` for flags/masks/sets,
 `CALL` for composition/recursion, `EMIT` for sequence output, and
 `FETCH` to read the KB's own facts — literally, by `subject|relation`, or
 parametrically, by `@var|relation` so one rule serves any entity), and a
 transpiler (`src/kb/transpile.py`) compiles it to native Python as a
 derived cache. Algorithms then live as scoped, cited triples beside the
 facts and rules, so the same engine queries, reasons over, and executes
-them with provenance intact. Nine worked examples in `src/microtheory/`
+them with provenance intact. Eleven worked examples in `src/microtheory/`
 (`procedure`, `program`, `replicate`, `showcase`, `unified`, `parametric`,
-`complexity`, `paradigm`, `fraud`) range from replicating real Python
-exactly to one rule run over a whole population, a polynomial-speedup join,
-a provenance-native capstone, and end-to-end fraud detection. Full guide:
+`bitwise`, `complexity`, `paradigm`, `fraud`, `decision_engine`) range from
+replicating real Python exactly to one rule run over a whole population,
+bit-masked entitlements, a polynomial-speedup join, and a grand capstone
+decision engine that uses every faculty at once. Full guide:
 **[docs/ORDERED_MICROTHEORIES.md](docs/ORDERED_MICROTHEORIES.md)**.
 
 ### An ingestion / import-consistency demo

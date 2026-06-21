@@ -34,6 +34,12 @@ object=operand, seq=address:
     DIV MOD
     LT LE GT      pop b, pop a, push 1.0 if (a CMP b) else 0.0
     GE EQ NE
+  bitwise (INTEGER ops — operands must be whole numbers, else REFUSED)
+    AND OR XOR    pop b, pop a, push (int(a) OP int(b)) as a number — bit masks,
+                  flags, set membership: the things real code expresses with & | ^
+    SHL SHR       pop b, pop a, push int(a) shifted by int(b) bits (b >= 0)
+    NOT           pop a, push ~int(a). Two's-complement, width-free: NOT n == -(n+1),
+                  so `x AND (NOT mask)` clears mask's bits exactly, as in C.
   stack shuffling (ergonomics — author without a temp variable for everything)
     DUP           push a copy of the top
     POP           discard the top
@@ -88,6 +94,7 @@ except Exception:
 # The closed instruction set. A relation outside this set is not executable.
 _NULLARY = {"ADD", "SUB", "MUL", "DIV", "MOD",
             "LT", "LE", "GT", "GE", "EQ", "NE",
+            "AND", "OR", "XOR", "NOT", "SHL", "SHR",
             "DUP", "POP", "SWAP", "EMIT", "RET"}
 _UNARY = {"PUSH", "LOAD", "STORE", "JMP", "JZ", "CALL", "FETCH"}
 OPCODES = _NULLARY | _UNARY
@@ -182,6 +189,15 @@ def _compile(kb: KB, scope: str, cache: dict) -> tuple:
     return cache[scope]
 
 
+def _as_int(x, op, t):
+    """Coerce a stack value to an int for a bitwise op. Bitwise logic is integer
+    logic, so a fractional operand is a REFUSAL (an honest error), not a silent
+    floor — same safe-by-construction stance as DIV-by-zero or an unknown opcode."""
+    if isinstance(x, float) and not x.is_integer():
+        raise ExecError(f"{op} requires integer operands, got {x} at seq {t.seq}")
+    return int(x)
+
+
 def _norm_input(v):
     """Normalise one run() input. Numbers (and numeric strings) become floats so
     the executor's arithmetic stays float-only and LOAD stays a bare dict read.
@@ -265,6 +281,24 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
             if b == 0:
                 raise ExecError(f"MOD by zero at seq {t.seq}")
             stack.append(a % b)
+        elif op == "AND":
+            b, a = pop(op), pop(op); stack.append(float(_as_int(a, op, t) & _as_int(b, op, t)))
+        elif op == "OR":
+            b, a = pop(op), pop(op); stack.append(float(_as_int(a, op, t) | _as_int(b, op, t)))
+        elif op == "XOR":
+            b, a = pop(op), pop(op); stack.append(float(_as_int(a, op, t) ^ _as_int(b, op, t)))
+        elif op == "NOT":
+            a = pop(op); stack.append(float(~_as_int(a, op, t)))
+        elif op == "SHL":
+            b, a = pop(op), pop(op); n = _as_int(b, op, t)
+            if n < 0:
+                raise ExecError(f"SHL by negative amount {n} at seq {t.seq}")
+            stack.append(float(_as_int(a, op, t) << n))
+        elif op == "SHR":
+            b, a = pop(op), pop(op); n = _as_int(b, op, t)
+            if n < 0:
+                raise ExecError(f"SHR by negative amount {n} at seq {t.seq}")
+            stack.append(float(_as_int(a, op, t) >> n))
         elif op == "LT":
             b, a = pop(op), pop(op); stack.append(1.0 if a < b else 0.0)
         elif op == "LE":
@@ -470,6 +504,23 @@ def _run() -> int:
           _raises(lambda: run(kbp, "surplus", {})))
     check("a non-numeric input survives normalisation as a subject id",
           _norm_input("customer_7741") == "customer_7741" and _norm_input("3.5") == 3.5)
+
+    # bitwise opcodes: integer logic for flags / masks / sets
+    def _bit(scope, ops):
+        return run(KB(triples=_prog(scope, ops), alias_map={}, n_articles=0), scope, {}).value
+    check("AND: 12 & 10 == 8", _bit("a", [("PUSH", 12), ("PUSH", 10), ("AND", None), ("RET", None)]) == 8.0)
+    check("OR: 12 | 10 == 14", _bit("o", [("PUSH", 12), ("PUSH", 10), ("OR", None), ("RET", None)]) == 14.0)
+    check("XOR: 12 ^ 10 == 6", _bit("x", [("PUSH", 12), ("PUSH", 10), ("XOR", None), ("RET", None)]) == 6.0)
+    check("SHL: 1 << 4 == 16", _bit("sl", [("PUSH", 1), ("PUSH", 4), ("SHL", None), ("RET", None)]) == 16.0)
+    check("SHR: 240 >> 4 == 15", _bit("sr", [("PUSH", 240), ("PUSH", 4), ("SHR", None), ("RET", None)]) == 15.0)
+    check("NOT: ~5 == -6 (two's complement)", _bit("nt", [("PUSH", 5), ("NOT", None), ("RET", None)]) == -6.0)
+    check("clear-bits idiom: 7 AND (NOT 2) == 5",
+          _bit("cb", [("PUSH", 7), ("PUSH", 2), ("NOT", None), ("AND", None), ("RET", None)]) == 5.0)
+    bfrac = KB(triples=_prog("bf", [("PUSH", 2.5), ("PUSH", 1), ("AND", None), ("RET", None)]), alias_map={}, n_articles=0)
+    check("bitwise op on a fractional operand is a controlled refusal",
+          _raises(lambda: run(bfrac, "bf", {})))
+    bneg = KB(triples=_prog("bn", [("PUSH", 1), ("PUSH", -1), ("SHL", None), ("RET", None)]), alias_map={}, n_articles=0)
+    check("negative shift amount is refused", _raises(lambda: run(bneg, "bn", {})))
 
     # closed set: an unknown opcode is refused before execution
     bad = KB(triples=_prog("evil", [("LOAD", "x"), ("OPEN_FILE", "/etc/passwd")]),

@@ -25,9 +25,11 @@ How it works (sound, no control-flow guesswork):
     instruction.
 
 Supported subset: PUSH, LOAD, STORE, ADD, SUB, MUL, DIV, MOD, LT/LE/GT/GE/EQ/NE,
-DUP, POP, SWAP, JMP, JZ, RET. NOT yet: CALL, FETCH, EMIT (these fall back to the
-interpreter). Programs read their inputs as variables (LOAD), matching
-`run(kb, scope, inputs)`.
+DUP, POP, SWAP, JMP, JZ, RET. NOT yet: CALL, FETCH, EMIT, and the bitwise ops
+AND/OR/XOR/NOT/SHL/SHR (these fall back to the interpreter — the bitwise ops carry
+integer-coercion semantics that the float-native transpiled form would not preserve
+exactly, so the interpreter, which refuses fractional operands, stays authoritative).
+Programs read their inputs as variables (LOAD), matching `run(kb, scope, inputs)`.
 
 Run the self-test:  python -m kb.transpile     (from src/)
 """
@@ -51,7 +53,7 @@ class NotTranspilable(Exception):
     to the interpreter."""
 
 
-_UNSUPPORTED = {"CALL", "FETCH", "EMIT"}
+_UNSUPPORTED = {"CALL", "FETCH", "EMIT", "AND", "OR", "XOR", "NOT", "SHL", "SHR"}
 _BINOP = {"ADD": "+", "SUB": "-", "MUL": "*"}
 _CMP = {"LT": "<", "LE": "<=", "GT": ">", "GE": ">=", "EQ": "==", "NE": "!="}
 # net effect on stack height, used to prove blocks balance at their boundaries

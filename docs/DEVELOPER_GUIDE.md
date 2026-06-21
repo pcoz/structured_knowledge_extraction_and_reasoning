@@ -78,7 +78,8 @@ src/
 │   │                                individual r1..r11 rules
 │   │
 │   ├── execute.py        Executor faculty: run an ORDERED microtheory as a
-│   │                     program (closed opcode set incl. CALL/EMIT/FETCH;
+│   │                     program (closed opcode set incl. arithmetic, compare,
+│   │                     bitwise AND/OR/XOR/NOT/SHL/SHR, CALL/EMIT/FETCH;
 │   │                     FETCH takes a literal `subject|relation` OR a
 │   │                     parametric `@var|relation` that resolves the subject
 │   │                     from a frame variable — one rule over any entity;
@@ -264,6 +265,14 @@ src/
     │                     the subject from an input; the same program serves a
     │                     population, each answer cited to the resolved entity;
     │                     the FETCH surface is declarable in advance as data.
+    ├── bitwise.py        flags / masks / sets as cited knowledge: AND OR XOR
+    │                     NOT SHL SHR — entitlement, eligibility (superset),
+    │                     set difference (XOR), schedules (SHL), field unpack
+    │                     (SHR), each computed over the org's own cited facts.
+    ├── decision_engine.py  GRAND capstone: a clinical prescribing decision
+    │                     engine using ALL faculties at once — query, reason
+    │                     (transitive + colleagues), execute (bitwise entitlement,
+    │                     recursive dosing, EMIT audit), conflict, transpile.
     ├── complexity.py     a polynomial speedup (O(M^2)->O(M)) on a 2-hop
     │                     join, from the KB's intrinsic index.
     ├── paradigm.py       capstone: facts, a rule, and programs in one KB —
