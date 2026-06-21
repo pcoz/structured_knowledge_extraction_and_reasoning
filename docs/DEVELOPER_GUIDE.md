@@ -79,7 +79,8 @@ src/
 │   │
 │   ├── execute.py        Executor faculty: run an ORDERED microtheory as a
 │   │                     program (closed opcode set incl. arithmetic, compare,
-│   │                     bitwise AND/OR/XOR/NOT/SHL/SHR, CALL/EMIT/FETCH;
+│   │                     bitwise AND/OR/XOR/NOT/SHL/SHR, higher-order
+│   │                     MAP/FILTER/FOLD, CALL/EMIT/FETCH;
 │   │                     FETCH takes a literal `subject|relation` OR a
 │   │                     parametric `@var|relation` that resolves the subject
 │   │                     from a frame variable — one rule over any entity;
@@ -269,10 +270,16 @@ src/
     │                     NOT SHL SHR — entitlement, eligibility (superset),
     │                     set difference (XOR), schedules (SHL), field unpack
     │                     (SHR), each computed over the org's own cited facts.
-    ├── decision_engine.py  GRAND capstone: a clinical prescribing decision
-    │                     engine using ALL faculties at once — query, reason
-    │                     (transitive + colleagues), execute (bitwise entitlement,
-    │                     recursive dosing, EMIT audit), conflict, transpile.
+    ├── higher_order.py   MAP/FILTER/FOLD over a cited loan series: compound
+    │                     balance (FOLD/reduce), accrual schedule (MAP), threshold
+    │                     screening (FILTER) — reduce/map/filter as microtheories.
+    ├── decision_engine.py  capstone: a clinical prescribing decision engine
+    │                     using ALL faculties at once — query, reason (transitive
+    │                     + colleagues), execute (bitwise entitlement, recursive
+    │                     dosing, EMIT audit), conflict, transpile.
+    ├── lending_engine.py  capstone: a lending engine using every faculty incl.
+    │                     higher-order — bitwise entitlement gates a FOLD-compounded
+    │                     balance, MAP schedule, FILTER review, reason, conflict.
     ├── complexity.py     a polynomial speedup (O(M^2)->O(M)) on a 2-hop
     │                     join, from the KB's intrinsic index.
     ├── paradigm.py       capstone: facts, a rule, and programs in one KB —

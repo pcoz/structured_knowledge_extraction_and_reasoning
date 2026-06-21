@@ -26,7 +26,9 @@ python -m microtheory.showcase      # recursion, mutual recursion, composition, 
 python -m microtheory.unified       # the algorithm and the data in one KB (no disconnect)
 python -m microtheory.parametric    # one rule, every entity: FETCH @var|relation
 python -m microtheory.bitwise       # masks/flags/sets: AND OR XOR NOT SHL SHR over cited facts
-python -m microtheory.decision_engine  # GRAND capstone: ALL faculties in one decision engine
+python -m microtheory.higher_order  # MAP/FILTER/FOLD over a cited series (reduce/map/filter)
+python -m microtheory.decision_engine  # capstone: ALL faculties in one decision engine
+python -m microtheory.lending_engine   # capstone: a lending engine incl. higher-order ops
 python -m microtheory.complexity    # a polynomial (O(M^2)->O(M)) speedup from the index
 python -m microtheory.paradigm      # capstone: query + reason + execute on one KB
 python -m microtheory.fraud         # applied capstone: fraud detection, every flag cited
@@ -215,6 +217,9 @@ written `before -- after` (top of stack on the right).
 | `CALL scope` | scope name | `… -- …` | call another ordered microtheory as a subroutine |
 | `RET` | — | `… -- …` | return to caller (or stop at top level); value = top of stack |
 | `EMIT` | — | `x -- x` | append the top of stack to `result.outputs` (leaves it on the stack) |
+| `FOLD s` | scope name | `seed n -- acc` | reduce microtheory `s` over `[0,n)`: acc=seed; acc=s(acc,i). Aggregate — see §8d |
+| `MAP s` | scope name | `n -- count` | EMIT `s(i)` for i in `[0,n)` — apply `s` across the range (a sequence) |
+| `FILTER s` | scope name | `n -- kept` | EMIT each `i` in `[0,n)` where predicate `s(i)` ≠ 0 |
 | `FETCH s\|r` | `subject\|relation` | `-- x` | read fact `(s, r)` from this KB; push its object as a number (cited in `result.reads`) |
 | `FETCH @v\|r` | `@var\|relation` | `-- x` | **parametric** subject: resolve the subject from local variable `v` (an entity id supplied as input), then fetch `(that subject, r)`. One rule, every entity — see §8b |
 
@@ -431,6 +436,29 @@ width-free (`NOT n == -(n+1)`), so `x AND (NOT mask)` clears exactly `mask`'s bi
 A shift count must be `≥ 0`. Worked example: `microtheory/bitwise.py`, computing
 all of the above over cited domain facts (each answer traced to the policy the
 masks came from).
+
+## 8d. Higher-order opcodes — MAP / FILTER / FOLD
+
+The imperative loops (`JMP`/`JZ`) get a functional/collection sibling: opcodes that
+apply a microtheory across a bounded range `[0, n)`. The per-element function is an
+ordinary ordered microtheory named like a `CALL` target, so this is composition,
+element-wise.
+
+| op | stack | does |
+|----|-------|------|
+| `FOLD s` | `seed n -- acc` | reduce: `acc=seed; for i in [0,n): acc = s(acc, i)` (inputs `{acc, i}`) |
+| `MAP s` | `n -- count` | for i in `[0,n)`: EMIT `s(i)` (inputs `{i}`) — a produced sequence |
+| `FILTER s` | `n -- kept` | for i in `[0,n)`: EMIT `i` when `s(i) != 0` |
+
+These are the SKEAR equivalents of `reduce`/`map`/`filter` (LINQ `Aggregate`/`Select`/
+`Where`). Because the range is bounded by `n` and each element counts against the
+step budget, termination and the closed-set guarantees are preserved — a negative
+count is a refusal. The per-element microtheory's `FETCH`es flow up into the
+aggregate's `reads`, so a reduced value carries the provenance of every fact it
+consumed. Worked examples: `microtheory/higher_order.py` (a cited loan series —
+compound balance by `FOLD`, an accrual schedule by `MAP`, threshold screening by
+`FILTER`) and `microtheory/lending_engine.py` (a full lending engine that folds the
+balance as part of a bitwise-gated, reasoned, conflict-checked decision).
 
 ---
 

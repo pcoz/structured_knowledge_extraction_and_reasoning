@@ -56,6 +56,17 @@ object=operand, seq=address:
   output
     EMIT          append the top of stack to the result's `outputs` list (for
                   programs that produce a SEQUENCE of outputs, not one value)
+  higher-order over a bounded range (the functional sibling of the loop ops)
+    FOLD scope    pop n, pop seed; reduce over i in [0,n): acc=seed; for each i,
+                  acc = scope(acc, i) — i.e. run microtheory `scope` with inputs
+                  {acc, i} and take its result; push the final acc. This is
+                  reduce/aggregate (e.g. a sum or product over a series).
+    MAP scope     pop n; for i in [0,n) EMIT scope(i) — apply `scope` (inputs {i})
+                  across the range, producing a SEQUENCE in `outputs`. Push n.
+    FILTER scope  pop n; for i in [0,n) EMIT i when scope(i) != 0 — keep the range
+                  elements a predicate microtheory accepts. Push the count kept.
+                  (`scope` is a microtheory named like a CALL target; bounded by n,
+                  so termination and the closed-set guarantees still hold.)
   data access (NO disconnect between the algorithm and the data)
     FETCH s|r     read the fact (subject=s, relation=r) from THIS SAME KB and push
                   its object as a number. The program operates directly on the
@@ -96,7 +107,8 @@ _NULLARY = {"ADD", "SUB", "MUL", "DIV", "MOD",
             "LT", "LE", "GT", "GE", "EQ", "NE",
             "AND", "OR", "XOR", "NOT", "SHL", "SHR",
             "DUP", "POP", "SWAP", "EMIT", "RET"}
-_UNARY = {"PUSH", "LOAD", "STORE", "JMP", "JZ", "CALL", "FETCH"}
+_UNARY = {"PUSH", "LOAD", "STORE", "JMP", "JZ", "CALL", "FETCH",
+          "MAP", "FILTER", "FOLD"}
 OPCODES = _NULLARY | _UNARY
 
 
@@ -339,6 +351,40 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
             fetched.append(f"{subj} {rel} {facts[0].object} [{facts[0].source_article}]")
         elif op == "EMIT":
             outputs.append(stack[-1] if stack else None)
+        elif op in ("FOLD", "MAP", "FILTER"):
+            # Higher-order: apply microtheory `arg` across a bounded range [0, n).
+            # Each element runs the named scope to completion via a nested run() —
+            # the same engine, recursively — so the per-element function is itself
+            # an ordered microtheory. Bounded by n; each step counts against the
+            # budget, so termination is preserved.
+            n = _as_int(pop(op), op, t)
+            if n < 0:
+                raise ExecError(f"{op} count {n} is negative at seq {t.seq}")
+            if op == "FOLD":
+                acc = pop(op)                          # the seed (below n on the stack)
+                for i in range(n):
+                    steps += 1
+                    if steps >= max_steps:
+                        raise ExecError(f"step budget {max_steps} exceeded in FOLD")
+                    res = run(kb, arg, {"acc": acc, "i": float(i)},
+                              max_steps, max_depth, False)
+                    fetched.extend(res.reads)          # provenance flows up
+                    acc = res.value if res.value is not None else acc
+                stack.append(acc)
+            else:                                      # MAP / FILTER -> a sequence
+                kept = 0
+                for i in range(n):
+                    steps += 1
+                    if steps >= max_steps:
+                        raise ExecError(f"step budget {max_steps} exceeded in {op}")
+                    res = run(kb, arg, {"i": float(i)}, max_steps, max_depth, False)
+                    fetched.extend(res.reads)
+                    if op == "MAP":
+                        outputs.append(res.value)
+                        kept += 1
+                    elif res.value not in (0, 0.0, None):
+                        outputs.append(float(i)); kept += 1
+                stack.append(float(kept))
         elif op == "JMP":
             nxt = arg                             # pre-resolved list index
         elif op == "JZ":
@@ -521,6 +567,26 @@ def _run() -> int:
           _raises(lambda: run(bfrac, "bf", {})))
     bneg = KB(triples=_prog("bn", [("PUSH", 1), ("PUSH", -1), ("SHL", None), ("RET", None)]), alias_map={}, n_articles=0)
     check("negative shift amount is refused", _raises(lambda: run(bneg, "bn", {})))
+
+    # higher-order: MAP / FILTER / FOLD apply a microtheory across a bounded range
+    ho = (_prog("sum_step", [("LOAD", "acc"), ("LOAD", "i"), ("PUSH", 1), ("ADD", None), ("ADD", None), ("RET", None)], "ho")
+          + _prog("prod_step", [("LOAD", "acc"), ("LOAD", "i"), ("PUSH", 1), ("ADD", None), ("MUL", None), ("RET", None)], "ho")
+          + _prog("square", [("LOAD", "i"), ("DUP", None), ("MUL", None), ("RET", None)], "ho")
+          + _prog("is_odd", [("LOAD", "i"), ("PUSH", 2), ("MOD", None), ("RET", None)], "ho")
+          + _prog("do_sum", [("PUSH", 0), ("PUSH", 5), ("FOLD", "sum_step"), ("RET", None)], "ho")
+          + _prog("do_fact", [("PUSH", 1), ("PUSH", 4), ("FOLD", "prod_step"), ("RET", None)], "ho")
+          + _prog("do_map", [("PUSH", 4), ("MAP", "square"), ("RET", None)], "ho")
+          + _prog("do_filter", [("PUSH", 6), ("FILTER", "is_odd"), ("RET", None)], "ho")
+          + _prog("do_neg", [("PUSH", 0), ("PUSH", -1), ("FOLD", "sum_step"), ("RET", None)], "ho"))
+    kbho = KB(triples=ho, alias_map={}, n_articles=0)
+    check("FOLD reduces a range (sum of 1..5 = 15)", run(kbho, "do_sum", {}).value == 15.0)
+    check("FOLD as a product (4! = 24)", run(kbho, "do_fact", {}).value == 24.0)
+    check("MAP applies a microtheory across a range (i*i for i<4)",
+          run(kbho, "do_map", {}).outputs == [0.0, 1.0, 4.0, 9.0])
+    check("FILTER keeps range elements a predicate accepts (odds < 6)",
+          run(kbho, "do_filter", {}).outputs == [1.0, 3.0, 5.0])
+    check("FOLD with a negative count is refused",
+          _raises(lambda: run(kbho, "do_neg", {})))
 
     # closed set: an unknown opcode is refused before execution
     bad = KB(triples=_prog("evil", [("LOAD", "x"), ("OPEN_FILE", "/etc/passwd")]),

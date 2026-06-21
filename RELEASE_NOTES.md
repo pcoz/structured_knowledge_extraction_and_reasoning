@@ -14,6 +14,38 @@ Datetime-stamped record of significant work. Times are local
 
 ---
 
+## 2026-06-21 (later still)
+
+### Higher-order opcodes — MAP / FILTER / FOLD
+
+The executor gains the functional/collection sibling of its imperative loops:
+higher-order opcodes that apply an ordered microtheory across a bounded range
+`[0, n)`. The per-element function is itself a named microtheory (composition,
+element-wise), so reduce/map/filter become first-class — the SKEAR equivalents of
+`Aggregate`/`Select`/`Where`.
+
+- **Executor** (`kb/execute.py`) — `FOLD s` (pop `seed`, `n`; reduce `acc = s(acc, i)`
+  over the range), `MAP s` (EMIT `s(i)` across the range — a produced sequence), and
+  `FILTER s` (EMIT the `i` a predicate accepts). Each element runs the named scope to
+  completion via a nested `run()` — the same engine, recursively — with inputs `{acc, i}`
+  (FOLD) or `{i}` (MAP/FILTER). Bounded by `n`, every iteration counts against the step
+  budget (termination preserved); a negative count is refused. The per-element
+  microtheory's `FETCH`es flow up into the aggregate's cited `reads`. (OPCODES 29 → 32.)
+- **Transpiler** (`kb/transpile.py`) — `MAP`/`FILTER`/`FOLD` join the interpreter-only
+  set (they drive a nested interpreter per element).
+- **Worked examples** —
+  `microtheory/higher_order.py` (#14): reduce/map/filter over a cited loan series —
+  compound balance (`FOLD`), accrual schedule (`MAP`), threshold screening (`FILTER`).
+  `microtheory/lending_engine.py` (#15): a second whole-engine capstone — a lending
+  decision using EVERY faculty including higher-order (bitwise entitlement gates a
+  `FOLD`-compounded balance; `MAP` schedule; `FILTER` review; query; reason; conflict;
+  transpile), every answer cited.
+- **Docs** — `docs/ORDERED_MICROTHEORIES.md` (opcode table + new §8d),
+  `docs/DEVELOPER_GUIDE.md`, `docs/NOVELTIES.md`, `README.md` updated; both examples
+  cross-linked.
+
+---
+
 ## 2026-06-21 (later)
 
 ### Bitwise opcodes — flags, masks, and sets
