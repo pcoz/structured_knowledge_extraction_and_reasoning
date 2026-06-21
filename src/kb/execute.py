@@ -141,8 +141,21 @@ class ExecResult:
 
 @dataclass
 class _Frame:
-    """One activation record: a program (ordered scope), its address map, the
-    program counter, and a private variable namespace (so recursion works)."""
+    """One activation record on the call stack — the executor's analogue of a CPU
+    stack frame. Holds everything that is PRIVATE to one in-flight invocation of a
+    microtheory: which program is running (`scope`/`prog`), where in it we are
+    (`pc`), how to resolve a jump (`addr`: seq -> list index), and — crucially —
+    its OWN local-variable namespace (`variables`).
+
+    Why locals live HERE and not in a single shared dict: it is what makes
+    recursion correct. When `fact` CALLs `fact`, a fresh `_Frame` is pushed with an
+    empty `variables`, so the callee's `STORE n` cannot clobber the caller's `n`.
+    Each recursive activation keeps its own `n` exactly as a real call stack would.
+    Note the deliberate asymmetry: the operand STACK is SHARED across frames (that
+    is the argument/return-value channel between caller and callee — args are left
+    on it before a CALL, the result is left on it at RET), while VARIABLES are
+    per-frame (private working storage). Same split a hardware calling convention
+    makes between the data stack and a function's locals."""
     scope: str
     prog: list
     addr: dict
@@ -287,6 +300,14 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
     # subject (e.g. "customer_7741"), not a number. They never enter arithmetic in
     # a well-formed program; LOAD of one simply pushes the id back unchanged.
     init_vars = {k: _norm_input(v) for k, v in (inputs or {}).items()}
+    # `frames` IS the call stack: a list of activation records used as a stack
+    # (append to call, pop to return). The top-level program is the bottom frame;
+    # its locals are seeded with the run() inputs. CALL/DISPATCH push a frame, RET
+    # (or running off the end of a program) pops one. The main loop below is a
+    # TRAMPOLINE: instead of the interpreter recursing into itself for a CALL (which
+    # would consume the Python C-stack and make depth unbounded/uncontrollable), it
+    # manipulates THIS explicit stack and loops. That is what lets `max_depth` be a
+    # hard, checkable budget — call depth is just `len(frames)`, not Python frames.
     frames: list[_Frame] = [_Frame(scope, decoded, addr, 0, init_vars)]
     steps = 0
 
@@ -295,8 +316,18 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
             raise ExecError(f"stack underflow on {op}")
         return stack.pop()
 
+    # The fetch-decode-execute loop. Each turn runs ONE instruction of the
+    # topmost frame. The big if/elif ladder below is the executor's instruction
+    # decoder: there is one explicit branch per opcode and NOTHING else can run —
+    # no `eval`, no getattr-into-Python, no dynamic import. The set of reachable
+    # behaviours is exactly the set of branches here, which is precisely the
+    # "closed instruction set" guarantee (validate() already rejected anything not
+    # in OPCODES before we got here, so the final `else` is unreachable). The step
+    # budget is charged ONCE PER INSTRUCTION at the top of the loop, before any
+    # work — so even a tight `JMP 0` spin loop, or runaway higher-order expansion,
+    # is bounded: termination is guaranteed by construction, not hoped for.
     while frames:
-        fr = frames[-1]
+        fr = frames[-1]                           # the currently-executing activation
         prog = fr.prog
         if fr.pc >= len(prog):                    # ran off the end => implicit return
             frames.pop()
@@ -305,7 +336,7 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
             raise ExecError(f"step budget {max_steps} exceeded (non-terminating program?)")
         steps += 1
         op, arg, t = prog[fr.pc]                   # pre-decoded: no parsing here
-        nxt = fr.pc + 1                            # default: fall through
+        nxt = fr.pc + 1                            # default: fall through to next instr
 
         if op == "PUSH":
             stack.append(arg)                     # already a float
