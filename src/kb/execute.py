@@ -56,6 +56,13 @@ object=operand, seq=address:
                   knowledge base's own facts — no ORM, no serialization, no
                   separate data layer. The fact's source is recorded in the trace,
                   so the result's provenance spans both the program and the data.
+    FETCH @v|r    PARAMETRIC subject: read the subject from the local variable `v`
+                  (an entity id supplied as an input or STOREd earlier), then fetch
+                  (that subject, relation=r). This lets one program be written once
+                  over a GENERIC entity and run against any concrete one — e.g. a
+                  per-customer rule whose `customer_id` is an input — instead of
+                  baking a specific subject into the operand. The resolved subject
+                  is recorded in the trace exactly like a literal FETCH.
 
 `seq` is the address: JMP/JZ targets name the `seq` of the instruction to run
 next. CALL targets name another scope. Authoring programs with contiguous seq
@@ -162,6 +169,8 @@ def _compile(kb: KB, scope: str, cache: dict) -> tuple:
                 raise ExecError(f"jump to undefined address {target} in {scope!r}")
             arg = addr[target]                    # resolve to a list index up front
         elif op == "FETCH":
+            # subject may be a literal ("widget") or parametric ("@customer_id");
+            # the leading '@' is resolved against frame locals at run time.
             subj, sep, rel = str(raw).partition("|")
             if not sep:
                 raise ExecError(f"FETCH operand {raw!r} must be 'subject|relation'")
@@ -171,6 +180,19 @@ def _compile(kb: KB, scope: str, cache: dict) -> tuple:
         decoded.append((op, arg, t))
     cache[scope] = (decoded, addr)
     return cache[scope]
+
+
+def _norm_input(v):
+    """Normalise one run() input. Numbers (and numeric strings) become floats so
+    the executor's arithmetic stays float-only and LOAD stays a bare dict read.
+    A non-numeric string is kept verbatim — it is an entity id for parametric
+    `FETCH @var|relation`, a subject rather than a quantity."""
+    if isinstance(v, str):
+        try:
+            return float(v)
+        except ValueError:
+            return v                                  # entity id (subject), not a number
+    return float(v)
 
 
 def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
@@ -190,10 +212,14 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
     tlog: list = []                               # per-step trace (only if `trace`)
     cache: dict = {}                              # compiled programs, by scope
     decoded, addr = _compile(kb, scope, cache)
-    # Normalise inputs to float ONCE here, so the hot loop's LOAD is a bare dict
-    # read (every value on the stack is already a float: PUSH is pre-parsed,
-    # arithmetic yields floats, and STORE only ever stores stack values).
-    init_vars = {k: float(v) for k, v in (inputs or {}).items()}
+    # Normalise inputs ONCE here. Numeric inputs become floats so the hot loop's
+    # LOAD stays a bare dict read (every value the arithmetic ops touch is already
+    # a float: PUSH is pre-parsed, arithmetic yields floats, STORE only ever
+    # stores stack values). NON-numeric strings are kept verbatim — these are the
+    # entity ids consumed by parametric `FETCH @var|relation`, which reads a
+    # subject (e.g. "customer_7741"), not a number. They never enter arithmetic in
+    # a well-formed program; LOAD of one simply pushes the id back unchanged.
+    init_vars = {k: _norm_input(v) for k, v in (inputs or {}).items()}
     frames: list[_Frame] = [_Frame(scope, decoded, addr, 0, init_vars)]
     steps = 0
 
@@ -262,6 +288,12 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
             # The algorithm and the data it consumes live in one store — no
             # bridge, no copy. The read is cited so provenance stays unbroken.
             subj, rel = arg
+            if subj.startswith("@"):
+                # Parametric subject: resolve `@var` from this frame's locals.
+                var = subj[1:]
+                if var not in fr.variables:
+                    raise ExecError(f"FETCH @{var}: variable not set in {fr.scope!r}")
+                subj = str(fr.variables[var])
             facts = kb.out_facts(subj, rel)
             if not facts:
                 raise ExecError(f"FETCH found no fact ({subj}, {rel}) in the KB")
@@ -414,6 +446,30 @@ def _run() -> int:
           rfetch.value == 100.0)
     check("FETCH records the facts it read, cited", len(rfetch.reads) == 2
           and "[catalogue]" in rfetch.reads[0])
+
+    # PARAMETRIC FETCH: one program written over a GENERIC subject, run against
+    # any concrete entity. `@who|BALANCE` reads the subject from the input `who`,
+    # so the SAME program serves every account without baking in a subject.
+    accounts = [
+        Triple("alice", "BALANCE", "120", "ledger", 0, None, None, 1.0),
+        Triple("bob", "BALANCE", "40", "ledger", 0, None, None, 1.0),
+        Triple("global", "MIN_BALANCE", "50", "policy", 0, None, None, 1.0),
+    ]
+    # surplus(who) = who.BALANCE - global.MIN_BALANCE  (mixes parametric + literal)
+    surplus = _prog("surplus", [("FETCH", "@who|BALANCE"), ("FETCH", "global|MIN_BALANCE"),
+                                ("SUB", None), ("RET", None)], "rules")
+    kbp = KB(triples=accounts + surplus, alias_map={}, n_articles=0)
+    check("parametric FETCH resolves @who against alice (120-50=70)",
+          run(kbp, "surplus", {"who": "alice"}).value == 70.0)
+    check("the SAME program serves bob with no rewrite (40-50=-10)",
+          run(kbp, "surplus", {"who": "bob"}).value == -10.0)
+    rp = run(kbp, "surplus", {"who": "alice"})
+    check("parametric FETCH cites the RESOLVED subject, not '@who'",
+          any("alice BALANCE" in r for r in rp.reads))
+    check("parametric FETCH with the variable unset is a controlled refusal",
+          _raises(lambda: run(kbp, "surplus", {})))
+    check("a non-numeric input survives normalisation as a subject id",
+          _norm_input("customer_7741") == "customer_7741" and _norm_input("3.5") == 3.5)
 
     # closed set: an unknown opcode is refused before execution
     bad = KB(triples=_prog("evil", [("LOAD", "x"), ("OPEN_FILE", "/etc/passwd")]),

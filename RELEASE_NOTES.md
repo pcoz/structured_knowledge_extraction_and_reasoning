@@ -14,6 +14,40 @@ Datetime-stamped record of significant work. Times are local
 
 ---
 
+## 2026-06-21
+
+### Parametric `FETCH` — one rule, every entity
+
+The executor's `FETCH` opcode gains a **parametric subject** form,
+`FETCH @var|relation`, alongside the existing literal `FETCH subject|relation`.
+The subject is resolved at run time from a local frame variable (an entity id
+supplied as a run input), so a single ordered microtheory can be written once
+over a generic entity and executed against any concrete one — a per-customer
+rule whose `customer_id` is an input, rather than a program with a subject baked
+into the operand. Backward compatible: literal FETCH is unchanged.
+
+- **Executor** (`kb/execute.py`) — the FETCH handler resolves a leading `@` in
+  the operand's subject against `frame.variables`; an unset variable is a
+  controlled `ExecError` (the same safe-by-construction refusal as an unknown
+  opcode). Input normalisation now keeps a **non-numeric** input verbatim (an
+  entity id is a subject, not a quantity) while numeric inputs still become
+  floats, so the arithmetic hot path stays float-only. The resolved subject is
+  cited in `result.reads` exactly like a literal FETCH — provenance names the
+  concrete entity, never `@var`.
+- **Transpiler** (`kb/transpile.py`) — unchanged: `FETCH` already falls back to
+  the interpreter, so parametric FETCH is covered with no transpiler change.
+- **Worked example** (`microtheory/parametric.py`, example #11) — one
+  `loan_offer` rule run against three customers with no rewrite; editing one
+  customer's fact updates only that customer's answer; and the rule's per-entity
+  FETCH surface, resolved over its own triples, is shown provably equal to what
+  execution reads (a rule's data dependencies are themselves inspectable
+  knowledge).
+- **Docs** — `docs/ORDERED_MICROTHEORIES.md` (opcode table + new §8b),
+  `docs/DEVELOPER_GUIDE.md` (code map), `docs/NOVELTIES.md`, and `README.md`
+  updated; the new example cross-linked into the run lists.
+
+---
+
 ## 2026-06-18
 
 ### Ordered microtheories, an executor, and a transpiler (computation-as-data)

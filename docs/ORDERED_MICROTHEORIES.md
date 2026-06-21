@@ -24,6 +24,7 @@ python -m microtheory.program       # an ordered microtheory as a substitute for
 python -m microtheory.replicate     # replicate real Python; measure the efficiency
 python -m microtheory.showcase      # recursion, mutual recursion, composition, EMIT
 python -m microtheory.unified       # the algorithm and the data in one KB (no disconnect)
+python -m microtheory.parametric    # one rule, every entity: FETCH @var|relation
 python -m microtheory.complexity    # a polynomial (O(M^2)->O(M)) speedup from the index
 python -m microtheory.paradigm      # capstone: query + reason + execute on one KB
 python -m microtheory.fraud         # applied capstone: fraud detection, every flag cited
@@ -210,8 +211,11 @@ written `before -- after` (top of stack on the right).
 | `RET` | — | `… -- …` | return to caller (or stop at top level); value = top of stack |
 | `EMIT` | — | `x -- x` | append the top of stack to `result.outputs` (leaves it on the stack) |
 | `FETCH s\|r` | `subject\|relation` | `-- x` | read fact `(s, r)` from this KB; push its object as a number (cited in `result.reads`) |
+| `FETCH @v\|r` | `@var\|relation` | `-- x` | **parametric** subject: resolve the subject from local variable `v` (an entity id supplied as input), then fetch `(that subject, r)`. One rule, every entity — see §8b |
 
-Values are numbers (`float`). This is deliberate (see §9, Honest scope).
+Values are numbers (`float`). This is deliberate (see §9, Honest scope). Subjects
+passed in for parametric `FETCH @var|relation` are the one exception: a
+non-numeric input is kept verbatim as an entity id (a subject, not a quantity).
 
 ---
 
@@ -365,6 +369,37 @@ Three consequences, all in `microtheory/unified.py`:
 
 This removes the data/algorithm seam that conventional stacks bridge with glue
 code and lossy serialization.
+
+## 8b. Parametric `FETCH` — one rule, every entity
+
+`FETCH widget|PRICE` bakes the subject into the operand, tying the program to one
+entity. Real business rules are generic: "a customer's loan offer is three times
+their monthly income plus their balance" must run against *any* customer. The
+parametric form `FETCH @var|relation` reads the subject from a local variable —
+an entity id supplied as an input — so a **single** ordered microtheory serves a
+whole population. Literal and parametric FETCHes mix freely in one rule: per-
+entity facts (`@who|BALANCE`) alongside shared ones (`bank|INCOME_MULTIPLE`).
+
+```python
+LOAN_OFFER = [("FETCH","@who|MONTHLY_INCOME"), ("FETCH","bank|INCOME_MULTIPLE"),
+              ("MUL",None), ("FETCH","@who|BALANCE"), ("ADD",None), ("RET",None)]
+run(kb, "loan_offer", {"who": "c_alice"}).value   # 13500.0, cited to c_alice
+run(kb, "loan_offer", {"who": "c_bob"}).value     #  7800.0 — SAME program, no rewrite
+```
+
+Two properties worth their own demonstration (`microtheory/parametric.py`):
+
+1. **Cited to the resolved subject.** Each answer's `reads` name the concrete
+   entity (`c_alice MONTHLY_INCOME 4000 [kyc_intake]`), never the placeholder
+   `@who`. The parametric operand disappears into provenance.
+2. **Self-describing dependencies.** A parametric operand is inspectable *data*,
+   so the system can DECLARE — before running — exactly which facts the rule will
+   read for a given entity (resolve `@who` over the rule's own FETCH triples), and
+   that declared surface is provably equal to what execution reads. A rule's per-
+   entity data dependencies are themselves knowledge.
+
+An unset variable is a controlled refusal (`ExecError`), not a wrong answer — the
+same safe-by-construction stance as an unknown opcode.
 
 ---
 

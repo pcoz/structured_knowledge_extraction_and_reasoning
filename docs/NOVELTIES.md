@@ -263,7 +263,8 @@ order via `Triple.seq`, becoming a *sequence*. A sequence of steps is a
 procedure; a sequence of operations is a program. SKEAR's executor
 (`src/kb/execute.py`) runs such a program over a closed instruction set
 (arithmetic, comparison, load/store, stack ops, `JMP`/`JZ`, `CALL`, `RET`,
-`EMIT`, and `FETCH` — which reads the KB's own facts), and a transpiler
+`EMIT`, and `FETCH` — which reads the KB's own facts, by a literal subject
+or a parametric `@var` so one rule serves any entity), and a transpiler
 (`src/kb/transpile.py`) compiles it to native Python.
 
 **Prior art**:
@@ -281,7 +282,10 @@ procedure; a sequence of operations is a program. SKEAR's executor
 - **The system reasons about its own algorithms.** Because a procedure is
   data, the machinery that derives facts can prove properties of programs
   (precedence closure, cycle/linearizability, data dependencies):
-  computation is an object of inquiry, not an opaque verb.
+  computation is an object of inquiry, not an opaque verb. A parametric
+  `FETCH @var|relation` makes this concrete — a rule's per-entity data
+  dependencies are inspectable triples, declarable in advance and provably
+  equal to what execution reads (`microtheory/parametric.py`).
 - **Unbroken provenance through computation.** `FETCH` reads cited facts;
   the result re-enters as a cited fact the next rule consumes — end-to-end
   auditability no code-over-database stack provides.

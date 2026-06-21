@@ -79,6 +79,9 @@ src/
 │   │
 │   ├── execute.py        Executor faculty: run an ORDERED microtheory as a
 │   │                     program (closed opcode set incl. CALL/EMIT/FETCH;
+│   │                     FETCH takes a literal `subject|relation` OR a
+│   │                     parametric `@var|relation` that resolves the subject
+│   │                     from a frame variable — one rule over any entity;
 │   │                     compile-once cache; termination + recursion guards).
 │   │                     KEY CLASSES: ExecResult, ExecError
 │   │                     KEY FUNCS: run, validate, OPCODES
@@ -257,6 +260,10 @@ src/
     │                     (FizzBuzz, primes) — each matched to Python.
     ├── unified.py        no disconnect: a program FETCHes the KB's own
     │                     facts, its result re-enters as a fact (one store).
+    ├── parametric.py     one rule, every entity: FETCH @var|relation reads
+    │                     the subject from an input; the same program serves a
+    │                     population, each answer cited to the resolved entity;
+    │                     the FETCH surface is declarable in advance as data.
     ├── complexity.py     a polynomial speedup (O(M^2)->O(M)) on a 2-hop
     │                     join, from the KB's intrinsic index.
     ├── paradigm.py       capstone: facts, a rule, and programs in one KB —

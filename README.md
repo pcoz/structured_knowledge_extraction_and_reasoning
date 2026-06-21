@@ -245,15 +245,16 @@ repairs it. *(See `src/microtheory/`; uses the `Triple.scope` slot.)*
 when its members are opcodes — an executable program. SKEAR's executor
 (`src/kb/execute.py`) runs it over a closed instruction set (including
 `CALL` for composition/recursion, `EMIT` for sequence output, and
-`FETCH` to read the KB's own facts), and a transpiler
-(`src/kb/transpile.py`) compiles it to native Python as a derived cache.
-Algorithms then live as scoped, cited triples beside the facts and rules,
-so the same engine queries, reasons over, and executes them with
-provenance intact. Eight worked examples in `src/microtheory/`
-(`procedure`, `program`, `replicate`, `showcase`, `unified`, `complexity`,
-`paradigm`, `fraud`) range from replicating real Python exactly to a
-polynomial-speedup join, a provenance-native capstone, and end-to-end
-fraud detection. Full guide:
+`FETCH` to read the KB's own facts — literally, by `subject|relation`, or
+parametrically, by `@var|relation` so one rule serves any entity), and a
+transpiler (`src/kb/transpile.py`) compiles it to native Python as a
+derived cache. Algorithms then live as scoped, cited triples beside the
+facts and rules, so the same engine queries, reasons over, and executes
+them with provenance intact. Nine worked examples in `src/microtheory/`
+(`procedure`, `program`, `replicate`, `showcase`, `unified`, `parametric`,
+`complexity`, `paradigm`, `fraud`) range from replicating real Python
+exactly to one rule run over a whole population, a polynomial-speedup join,
+a provenance-native capstone, and end-to-end fraud detection. Full guide:
 **[docs/ORDERED_MICROTHEORIES.md](docs/ORDERED_MICROTHEORIES.md)**.
 
 ### An ingestion / import-consistency demo
