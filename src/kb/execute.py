@@ -118,7 +118,7 @@ _NULLARY = {"ADD", "SUB", "MUL", "DIV", "MOD",
             "AND", "OR", "XOR", "NOT", "SHL", "SHR",
             "DUP", "POP", "SWAP", "EMIT", "RET"}
 _UNARY = {"PUSH", "LOAD", "STORE", "JMP", "JZ", "CALL", "FETCH",
-          "MAP", "FILTER", "FOLD", "OPAQUE"}
+          "MAP", "FILTER", "FOLD", "OPAQUE", "DISPATCH"}
 OPCODES = _NULLARY | _UNARY
 
 
@@ -205,6 +205,26 @@ def _compile(kb: KB, scope: str, cache: dict) -> tuple:
             if not sep:
                 raise ExecError(f"FETCH operand {raw!r} must be 'subject|relation'")
             arg = (subj, rel)
+        elif op == "DISPATCH":
+            # A jump table 'selector:scope,selector:scope,...': a computed CALL whose
+            # target microtheory is chosen by the integer selector popped at run time
+            # (a vtable / opcode table / state-machine transition — dispatch as DATA,
+            # not branches baked into the program).
+            table = {}
+            for pair in str(raw).split(","):
+                pair = pair.strip()
+                if not pair:
+                    continue
+                k, sep, sc = pair.partition(":")
+                if not sep or not sc.strip():
+                    raise ExecError(f"DISPATCH operand {raw!r} must be 'selector:scope,...'")
+                try:
+                    table[int(k.strip())] = sc.strip()
+                except ValueError:
+                    raise ExecError(f"DISPATCH selector {k!r} is not an integer in {scope!r}")
+            if not table:
+                raise ExecError(f"DISPATCH operand {raw!r} is empty in {scope!r}")
+            arg = table
         else:
             arg = raw
         decoded.append((op, arg, t))
@@ -435,6 +455,24 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
             cd, ad = _compile(kb, arg, cache)     # compiled once, re-used on recursion
             frames.append(_Frame(arg, cd, ad, 0, {}))   # fresh locals; shared stack
             continue
+        elif op == "DISPATCH":
+            # Computed CALL: the integer selector on the stack picks the target
+            # microtheory from the jump table. This is a data-driven SKEAR->SKEAR
+            # call — the resolution itself is decidable (a table lookup over a
+            # FETCHed selector), so dynamic dispatch is HARD, not soft.
+            sel = _as_int(pop(op), op, t)
+            target = arg.get(sel)
+            if target is None:
+                raise ExecError(f"DISPATCH: no case for selector {sel} "
+                                f"(cases: {sorted(arg)}) at seq {t.seq}")
+            fr.pc += 1                            # return address: after the DISPATCH
+            if len(frames) >= max_depth:
+                raise ExecError(f"call depth {max_depth} exceeded (runaway recursion?)")
+            if trace:
+                tlog.append(_fmt(t, stack))
+            cd, ad = _compile(kb, target, cache)
+            frames.append(_Frame(target, cd, ad, 0, {}))
+            continue
         elif op == "RET":
             if trace:
                 tlog.append(_fmt(t, stack))
@@ -537,6 +575,40 @@ def _run() -> int:
 
     check("recursive CALL: factorial matches Python over 0..8",
           all(_fact_call(kbf, n) == py_fact(n) for n in range(0, 9)))
+
+    # DISPATCH: a computed CALL — the integer selector on the stack chooses the
+    # target microtheory from a jump table (a vtable / polymorphic dispatch). Two
+    # operations over a square share one caller; the `kind` input selects which.
+    # The dispatch is data-driven: the candidate set lives in the TABLE, not in a
+    # chain of hand-written branches, so adding a case never touches the caller.
+    area_sq = _prog("area_square",                                   # side -> side*side
+                    [("STORE", "s"), ("LOAD", "s"), ("LOAD", "s"), ("MUL", None), ("RET", None)], "geo")
+    perim_sq = _prog("perim_square",                                 # side -> 4*side
+                     [("STORE", "s"), ("LOAD", "s"), ("PUSH", 4), ("MUL", None), ("RET", None)], "geo")
+    # caller: push the side (for the target to consume), then the selector; DISPATCH
+    # pops the selector (1->area, 2->perimeter) and runs the chosen microtheory.
+    shape = _prog("shape",
+                  [("LOAD", "side"), ("LOAD", "kind"),
+                   ("DISPATCH", "1:area_square,2:perim_square"), ("RET", None)], "geo")
+    kbd = KB(triples=area_sq + perim_sq + shape, alias_map={}, n_articles=0)
+    check("DISPATCH selector 1 runs area_square (5 -> 25)",
+          run(kbd, "shape", {"side": 5, "kind": 1}).value == 25.0)
+    check("DISPATCH selector 2 runs perim_square (5 -> 20)",
+          run(kbd, "shape", {"side": 5, "kind": 2}).value == 20.0)
+    # an unmapped selector is an honest REFUSAL, never a silent fall-through.
+    dispatched_unknown = False
+    try:
+        run(kbd, "shape", {"side": 5, "kind": 9})
+    except ExecError:
+        dispatched_unknown = True
+    check("DISPATCH refuses an unmapped selector (no case 9)", dispatched_unknown)
+    # a fractional selector is refused too (dispatch keys are integers).
+    frac = False
+    try:
+        run(kbd, "shape", {"side": 5, "kind": 1.5})
+    except ExecError:
+        frac = True
+    check("DISPATCH refuses a fractional selector", frac)
 
     # EMIT: a program that produces a SEQUENCE of outputs (1,2,...,n)
     emit_final = [

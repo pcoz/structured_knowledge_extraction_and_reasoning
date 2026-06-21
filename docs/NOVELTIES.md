@@ -267,7 +267,9 @@ flags/masks/sets, higher-order `MAP`/`FILTER`/`FOLD` that apply a microtheory
 across a bounded range — reduce/map/filter as composition, `OPAQUE` — a
 declared, run-refused black box that lets a whole *system* (incl. its
 unverified parts) be modelled honestly, load/store, stack ops, `JMP`/`JZ`,
-`CALL`, `RET`, `EMIT`, and `FETCH` — which reads the KB's own facts, by a
+`CALL`, `DISPATCH` — a computed call whose target microtheory is chosen by a
+popped selector from a jump table (vtable / interpreter-opcode-table / state
+machine; dispatch as data, not branches), `RET`, `EMIT`, and `FETCH` — which reads the KB's own facts, by a
 literal subject or a parametric `@var` so one rule serves any entity), and a
 transpiler (`src/kb/transpile.py`) compiles it to native Python.
 

@@ -27,6 +27,8 @@ python -m microtheory.unified       # the algorithm and the data in one KB (no d
 python -m microtheory.parametric    # one rule, every entity: FETCH @var|relation
 python -m microtheory.bitwise       # masks/flags/sets: AND OR XOR NOT SHL SHR over cited facts
 python -m microtheory.higher_order  # MAP/FILTER/FOLD over a cited series (reduce/map/filter)
+python -m microtheory.dispatch      # DISPATCH: choose the computation from a cited fact (vtable)
+python -m microtheory.decisioning   # capstone: interacting decision systems that resolve themselves
 python -m microtheory.decision_engine  # capstone: ALL faculties in one decision engine
 python -m microtheory.lending_engine   # capstone: a lending engine incl. higher-order ops
 python -m microtheory.architecture      # model a system, then open its black boxes (refinement)
@@ -217,6 +219,7 @@ written `before -- after` (top of stack on the right).
 | `JMP a` | address | `--` | jump to the instruction at `seq == a` |
 | `JZ a` | address | `c --` | pop `c`; if `c == 0` jump to `a`, else fall through |
 | `CALL scope` | scope name | `… -- …` | call another ordered microtheory as a subroutine |
+| `DISPATCH t` | `sel:scope,…` jump table | `… s -- …` | **computed** call: pop integer selector `s`, run the microtheory the table maps it to (vtable / opcode table / state transition). No case → `ExecError`. See §8f |
 | `RET` | — | `… -- …` | return to caller (or stop at top level); value = top of stack |
 | `EMIT` | — | `x -- x` | append the top of stack to `result.outputs` (leaves it on the stack) |
 | `FOLD s` | scope name | `seed n -- acc` | reduce microtheory `s` over `[0,n)`: acc=seed; acc=s(acc,i). Aggregate — see §8d |
@@ -493,6 +496,43 @@ The same idea models any layered knowledge with unopened leaves — subprocesses
 plan steps, mechanisms — not just software. The discipline that keeps `OPAQUE` honest
 rather than an escape hatch: it is declarable and auditable but **never executed** by
 the engine itself.
+
+## 8f. DISPATCH — choosing the computation from data
+
+`CALL scope` names its target in the program. `DISPATCH table` **computes** its
+target: it pops an integer selector off the stack and runs the microtheory the
+jump table maps it to. Where `CALL` is a fixed edge, `DISPATCH` is a *data-driven*
+edge — the candidate set lives in the table (`"1:risk_card,2:risk_wire,3:risk_crypto"`),
+not in a chain of hand-written branches.
+
+```text
+("DISPATCH", "1:area_square,2:perim_square")   # pop s; run area_square if s==1, perim_square if s==2
+```
+
+It is the closed-set, decidable building block of:
+
+- **interpreters** — an opcode value selects its handler microtheory;
+- **virtual dispatch** — a type id selects the method (this is how CodeGuard turns
+  an ambiguous `x.Foo()` into a *decidable* edge: supply the receiver's type as a
+  cited fact, then `DISPATCH` resolves the target — the resolution is HARD, the only
+  softness is that one type fact);
+- **state machines / rule engines** — a state or case value selects the transition.
+
+Two properties branch-chains lack: the *choice* of computation can itself be a
+**cited fact** (so its provenance flows into the result — `microtheory/dispatch.py`),
+and the system is **open/closed** — a new case is a new microtheory plus one table
+row, with the caller untouched. An unmapped selector is an honest **`ExecError`**,
+never a silent default; a fractional selector is refused (keys are integers).
+
+`microtheory/decisioning.py` composes it into a real flow: an external sanctions
+screen (`OPAQUE`), a channel router, per-rail risk models (parametric `FETCH`), a
+tier classifier (`CALL`), and an action policy — five interacting decision systems
+with **no business branch in the orchestrator**. The cited data routes itself
+through them and the correct, fully-cited decision resolves itself.
+
+`DISPATCH` stays on the interpreter (it is not transpiled to native code): like
+`CALL`, its target is chosen at run time, so there is no single static callee to
+inline.
 
 ---
 

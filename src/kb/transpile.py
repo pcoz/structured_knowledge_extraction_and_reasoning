@@ -59,7 +59,11 @@ _UNSUPPORTED = {"CALL", "FETCH", "EMIT", "AND", "OR", "XOR", "NOT", "SHL", "SHR"
                 "MAP", "FILTER", "FOLD",
                 # OPAQUE is a non-executable black-box marker (run-refused unless an
                 # oracle is supplied) — there is nothing to compile to native code.
-                "OPAQUE"}
+                "OPAQUE",
+                # DISPATCH chooses its target microtheory at run time from a popped
+                # selector, so (like CALL) it stays on the interpreter — there is no
+                # single static target to inline.
+                "DISPATCH"}
 _BINOP = {"ADD": "+", "SUB": "-", "MUL": "*"}
 _CMP = {"LT": "<", "LE": "<=", "GT": ">", "GE": ">=", "EQ": "==", "NE": "!="}
 # net effect on stack height, used to prove blocks balance at their boundaries

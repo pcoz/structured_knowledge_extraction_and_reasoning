@@ -14,6 +14,34 @@ Datetime-stamped record of significant work. Times are local
 
 ---
 
+## 2026-06-21 (later still — DISPATCH)
+
+### DISPATCH — computed (data-driven) calls
+
+- **New opcode `DISPATCH table`** (`kb/execute.py`): pops an integer selector and
+  runs the microtheory a jump table (`"sel:scope,…"`) maps it to — the computed
+  sibling of `CALL`. The candidate set is DATA (the table), not branches baked into
+  the program: a vtable / interpreter-opcode-table / state-machine transition.
+  Decidable (a table lookup); an unmapped or fractional selector is a refusal
+  (`ExecError`), never a silent default. Added to the closed set and to the
+  transpiler's interpreter-only set (its target is chosen at run time, like `CALL`).
+- **Worked examples** —
+  `microtheory/dispatch.py` (#18): the *choice* of computation is a cited policy
+  fact; one engine, open/closed extension (new operation = a microtheory + a table
+  row).
+  `microtheory/decisioning.py` (#19, capstone): five interacting decision systems —
+  an external sanctions screen (`OPAQUE`), a channel router, per-rail risk models
+  (parametric `FETCH`), a tier classifier (`CALL`), an action policy — with **no
+  business branch in the orchestrator**. The cited data routes itself and the
+  correct, fully-cited decision resolves itself.
+- **Motivation** — modelling call resolution as a *sub-SKEAR*: an ambiguous
+  `x.Foo()` becomes a *decidable* edge once the receiver's type is supplied as a
+  cited fact and `DISPATCH` selects the target. The resolution is HARD; the only
+  softness is that one type fact (oracle or learned) — see CodeGuard `docs/AMBIGUITY.md`.
+- Executor self-test extended (DISPATCH select / refuse-unmapped / refuse-fractional);
+  `docs/ORDERED_MICROTHEORIES.md` §8f + opcode table updated; `README.md` example
+  count updated. All examples green.
+
 ## 2026-06-21 (later still — OPAQUE)
 
 ### OPAQUE — acknowledged black boxes; modelling whole systems

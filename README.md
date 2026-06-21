@@ -254,10 +254,11 @@ parametrically, by `@var|relation` so one rule serves any entity), and a
 transpiler (`src/kb/transpile.py`) compiles it to native Python as a
 derived cache. Algorithms then live as scoped, cited triples beside the
 facts and rules, so the same engine queries, reasons over, and executes
-them with provenance intact. Fifteen worked examples in `src/microtheory/`
+them with provenance intact. Seventeen worked examples in `src/microtheory/`
 (`procedure`, `program`, `replicate`, `showcase`, `unified`, `parametric`,
-`bitwise`, `higher_order`, `complexity`, `paradigm`, `fraud`,
-`decision_engine`, `lending_engine`, `architecture`, `distributed_architecture`)
+`bitwise`, `higher_order`, `dispatch`, `decisioning`, `complexity`, `paradigm`,
+`fraud`, `decision_engine`, `lending_engine`, `architecture`,
+`distributed_architecture`)
 range from replicating real Python exactly to one rule over a whole population,
 bit-masked entitlements, reduce/map/filter over a cited series, capstone engines
 that use every faculty at once, and modelling a system's architecture as cited

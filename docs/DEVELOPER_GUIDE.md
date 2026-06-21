@@ -82,7 +82,9 @@ src/
 │   │                     bitwise AND/OR/XOR/NOT/SHL/SHR, higher-order
 │   │                     MAP/FILTER/FOLD, OPAQUE (declared black boxes,
 │   │                     run-refused unless an oracle is supplied),
-│   │                     CALL/EMIT/FETCH;
+│   │                     CALL/DISPATCH (computed call: a popped selector
+│   │                     picks the target microtheory from a jump table)
+│   │                     /EMIT/FETCH;
 │   │                     FETCH takes a literal `subject|relation` OR a
 │   │                     parametric `@var|relation` that resolves the subject
 │   │                     from a frame variable — one rule over any entity;
@@ -275,6 +277,13 @@ src/
     ├── higher_order.py   MAP/FILTER/FOLD over a cited loan series: compound
     │                     balance (FOLD/reduce), accrual schedule (MAP), threshold
     │                     screening (FILTER) — reduce/map/filter as microtheories.
+    ├── dispatch.py       DISPATCH: the computation is chosen by a cited policy
+    │                     fact (vtable / opcode table); open/closed — a new
+    │                     operation is a microtheory + a table row.
+    ├── decisioning.py    capstone: five interacting decision systems (external
+    │                     OPAQUE sanctions screen, channel router, per-rail risk
+    │                     models, tier classifier, action policy) — no business
+    │                     branch in the orchestrator; the decision resolves itself.
     ├── decision_engine.py  capstone: a clinical prescribing decision engine
     │                     using ALL faculties at once — query, reason (transitive
     │                     + colleagues), execute (bitwise entitlement, recursive
