@@ -29,6 +29,8 @@ python -m microtheory.bitwise       # masks/flags/sets: AND OR XOR NOT SHL SHR o
 python -m microtheory.higher_order  # MAP/FILTER/FOLD over a cited series (reduce/map/filter)
 python -m microtheory.decision_engine  # capstone: ALL faculties in one decision engine
 python -m microtheory.lending_engine   # capstone: a lending engine incl. higher-order ops
+python -m microtheory.architecture      # model a system, then open its black boxes (refinement)
+python -m microtheory.distributed_architecture  # a platform's architecture as queryable cited knowledge
 python -m microtheory.complexity    # a polynomial (O(M^2)->O(M)) speedup from the index
 python -m microtheory.paradigm      # capstone: query + reason + execute on one KB
 python -m microtheory.fraud         # applied capstone: fraud detection, every flag cited
@@ -220,6 +222,7 @@ written `before -- after` (top of stack on the right).
 | `FOLD s` | scope name | `seed n -- acc` | reduce microtheory `s` over `[0,n)`: acc=seed; acc=s(acc,i). Aggregate — see §8d |
 | `MAP s` | scope name | `n -- count` | EMIT `s(i)` for i in `[0,n)` — apply `s` across the range (a sequence) |
 | `FILTER s` | scope name | `n -- kept` | EMIT each `i` in `[0,n)` where predicate `s(i)` ≠ 0 |
+| `OPAQUE label` | label | `-- x` | a DECLARED black box: REFUSED unless its value is supplied via `oracles`, then recorded UNVERIFIED. Models un-opened components — see §8e |
 | `FETCH s\|r` | `subject\|relation` | `-- x` | read fact `(s, r)` from this KB; push its object as a number (cited in `result.reads`) |
 | `FETCH @v\|r` | `@var\|relation` | `-- x` | **parametric** subject: resolve the subject from local variable `v` (an entity id supplied as input), then fetch `(that subject, r)`. One rule, every entity — see §8b |
 
@@ -459,6 +462,37 @@ consumed. Worked examples: `microtheory/higher_order.py` (a cited loan series �
 compound balance by `FOLD`, an accrual schedule by `MAP`, threshold screening by
 `FILTER`) and `microtheory/lending_engine.py` (a full lending engine that folds the
 balance as part of a bitwise-gated, reasoned, conflict-checked decision).
+
+## 8e. OPAQUE — acknowledged black boxes, and modelling whole systems
+
+Everything above is the *verifiable core*. `OPAQUE label` is the honest boundary of
+that core: a DECLARED black box — an external service, an ML model, a transcendental,
+a legacy module — whose internals SKEAR does not model. The executor will not invent
+its result: with no value supplied it **REFUSES** to run an `OPAQUE` step; given one
+via `run(..., oracles={label: value})` it pushes that value and records it in
+`result.opaque` as UNVERIFIED. So exactness is preserved (no silent fabrication), and
+provenance separates cited/verified facts from trusted black-box output ("buyer beware").
+
+This turns SKEAR into a medium for modelling a WHOLE SYSTEM, not just its verifiable
+parts. Compose `FETCH` (cited data), `CALL` (transparent sub-components), and `OPAQUE`
+(black-box components) and a microtheory IS a system architecture — a component/
+connector graph with explicit trust boundaries — expressed as queryable, reason-over-
+able, cited knowledge. Two things follow:
+
+- **Stepwise refinement.** Open a black box by replacing its `OPAQUE` step with a real
+  sub-microtheory; opening one box can reveal a deeper one (recursion). The system is
+  complete and auditable at every stage; refinement drives the black-box boundary to ∅
+  (`microtheory/architecture.py`).
+- **Architecture analysis as reasoning.** Extract the CALL/OPAQUE graph from the
+  programs-as-data, then the graph-spanning questions — the full transitive trust
+  boundary, a black box's blast radius, where PII flows into a black box, side-effect
+  reach — are queries and derivations over one cited KB
+  (`microtheory/distributed_architecture.py`).
+
+The same idea models any layered knowledge with unopened leaves — subprocesses, lemmas,
+plan steps, mechanisms — not just software. The discipline that keeps `OPAQUE` honest
+rather than an escape hatch: it is declarable and auditable but **never executed** by
+the engine itself.
 
 ---
 

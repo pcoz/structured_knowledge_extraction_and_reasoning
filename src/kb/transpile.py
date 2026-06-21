@@ -56,7 +56,10 @@ class NotTranspilable(Exception):
 _UNSUPPORTED = {"CALL", "FETCH", "EMIT", "AND", "OR", "XOR", "NOT", "SHL", "SHR",
                 # higher-order ops drive a nested interpreter per element, so they
                 # stay on the interpreter rather than being inlined to native code.
-                "MAP", "FILTER", "FOLD"}
+                "MAP", "FILTER", "FOLD",
+                # OPAQUE is a non-executable black-box marker (run-refused unless an
+                # oracle is supplied) — there is nothing to compile to native code.
+                "OPAQUE"}
 _BINOP = {"ADD": "+", "SUB": "-", "MUL": "*"}
 _CMP = {"LT": "<", "LE": "<=", "GT": ">", "GE": ">=", "EQ": "==", "NE": "!="}
 # net effect on stack height, used to prove blocks balance at their boundaries

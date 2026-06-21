@@ -14,6 +14,37 @@ Datetime-stamped record of significant work. Times are local
 
 ---
 
+## 2026-06-21 (later still — OPAQUE)
+
+### OPAQUE — acknowledged black boxes; modelling whole systems
+
+`OPAQUE` is the honest boundary of the verifiable core: a DECLARED black box (an
+external service, an ML model, a transcendental, a legacy module) whose internals
+SKEAR does not model. This lets a whole SYSTEM be represented — not just its
+verifiable parts — as queryable, reason-over-able, cited knowledge.
+
+- **Executor** (`kb/execute.py`) — `OPAQUE label`. The executor will NOT invent its
+  result: with no value supplied it **REFUSES** the step (exactness preserved); given
+  one via `run(..., oracles={label: value})` it pushes that value and records it in the
+  new `ExecResult.opaque` list as UNVERIFIED, so provenance separates cited/verified
+  facts from trusted black-box output. `OPAQUE` is declarable and auditable but never
+  silently executed — so it can't become an escape hatch. (OPCODES 32 → 33.)
+- **Transpiler** — `OPAQUE` is non-executable, so it joins the interpreter-only set.
+- **Worked examples** —
+  `microtheory/architecture.py` (#16): model a loan-origination system with `OPAQUE`
+  components, then open the black boxes one by one — recursively (opening one can reveal
+  a deeper one) — until the system has complete, deterministic, fully-cited detail.
+  `microtheory/distributed_architecture.py` (#17): a payments platform's architecture as
+  cited knowledge — the CALL/OPAQUE graph extracted from the programs-as-data, then the
+  graph-spanning questions an architect dreads (full trust boundary, a black box's blast
+  radius, PII flowing into a black box, side-effect reach) answered as queries and
+  derivations over one cited KB.
+- **Docs** — `docs/ORDERED_MICROTHEORIES.md` (opcode table + new §8e),
+  `docs/DEVELOPER_GUIDE.md`, `docs/NOVELTIES.md`, `README.md` updated; both examples
+  cross-linked.
+
+---
+
 ## 2026-06-21 (later still)
 
 ### Higher-order opcodes — MAP / FILTER / FOLD

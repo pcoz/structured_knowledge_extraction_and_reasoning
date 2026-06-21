@@ -80,7 +80,9 @@ src/
 │   ├── execute.py        Executor faculty: run an ORDERED microtheory as a
 │   │                     program (closed opcode set incl. arithmetic, compare,
 │   │                     bitwise AND/OR/XOR/NOT/SHL/SHR, higher-order
-│   │                     MAP/FILTER/FOLD, CALL/EMIT/FETCH;
+│   │                     MAP/FILTER/FOLD, OPAQUE (declared black boxes,
+│   │                     run-refused unless an oracle is supplied),
+│   │                     CALL/EMIT/FETCH;
 │   │                     FETCH takes a literal `subject|relation` OR a
 │   │                     parametric `@var|relation` that resolves the subject
 │   │                     from a frame variable — one rule over any entity;
@@ -280,6 +282,12 @@ src/
     ├── lending_engine.py  capstone: a lending engine using every faculty incl.
     │                     higher-order — bitwise entitlement gates a FOLD-compounded
     │                     balance, MAP schedule, FILTER review, reason, conflict.
+    ├── architecture.py   model a system with OPAQUE black boxes, then open them
+    │                     one by one (refinement) — recursively, until the whole
+    │                     system has complete, deterministic, cited detail.
+    ├── distributed_architecture.py  a payments platform's architecture as cited
+    │                     knowledge: trust boundary, blast radius, PII-into-a-black-
+    │                     box compliance, side-effect reach — by reasoning over it.
     ├── complexity.py     a polynomial speedup (O(M^2)->O(M)) on a 2-hop
     │                     join, from the KB's intrinsic index.
     ├── paradigm.py       capstone: facts, a rule, and programs in one KB —

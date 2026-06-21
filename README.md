@@ -246,19 +246,22 @@ when its members are opcodes — an executable program. SKEAR's executor
 (`src/kb/execute.py`) runs it over a closed instruction set (arithmetic,
 comparison, **bitwise** `AND/OR/XOR/NOT/SHL/SHR` for flags/masks/sets,
 **higher-order** `MAP/FILTER/FOLD` over bounded ranges (reduce/map/filter),
+`OPAQUE` (a declared, run-refused **black box** that lets a whole *system* —
+including its unverified parts — be modelled honestly),
 `CALL` for composition/recursion, `EMIT` for sequence output, and
 `FETCH` to read the KB's own facts — literally, by `subject|relation`, or
 parametrically, by `@var|relation` so one rule serves any entity), and a
 transpiler (`src/kb/transpile.py`) compiles it to native Python as a
 derived cache. Algorithms then live as scoped, cited triples beside the
 facts and rules, so the same engine queries, reasons over, and executes
-them with provenance intact. Thirteen worked examples in `src/microtheory/`
+them with provenance intact. Fifteen worked examples in `src/microtheory/`
 (`procedure`, `program`, `replicate`, `showcase`, `unified`, `parametric`,
 `bitwise`, `higher_order`, `complexity`, `paradigm`, `fraud`,
-`decision_engine`, `lending_engine`) range from replicating real Python
-exactly to one rule run over a whole population, bit-masked entitlements,
-reduce/map/filter over a cited series, a polynomial-speedup join, and
-capstone engines that use every faculty at once. Full guide:
+`decision_engine`, `lending_engine`, `architecture`, `distributed_architecture`)
+range from replicating real Python exactly to one rule over a whole population,
+bit-masked entitlements, reduce/map/filter over a cited series, capstone engines
+that use every faculty at once, and modelling a system's architecture as cited
+knowledge with black boxes opened by stepwise refinement. Full guide:
 **[docs/ORDERED_MICROTHEORIES.md](docs/ORDERED_MICROTHEORIES.md)**.
 
 ### An ingestion / import-consistency demo

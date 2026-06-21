@@ -67,6 +67,16 @@ object=operand, seq=address:
                   elements a predicate microtheory accepts. Push the count kept.
                   (`scope` is a microtheory named like a CALL target; bounded by n,
                   so termination and the closed-set guarantees still hold.)
+  opaque (acknowledged black boxes — the honest boundary of the verifiable core)
+    OPAQUE label  a DECLARED black box (an uninterpreted node): a component whose
+                  internals SKEAR does not model — an external service, an ML model,
+                  a transcendental, a legacy module. The executor REFUSES to run it
+                  unless its value is supplied via `oracles={label: value}`; given
+                  one, it pushes that value and records it as UNVERIFIED. So a system
+                  can be MODELLED (queried, reasoned over, cited) with parts left
+                  honestly opaque — "buyer beware" — and each box can later be opened
+                  (refined into a real microtheory). Opaque is declarable and
+                  auditable but never silently executed: exactness is preserved.
   data access (NO disconnect between the algorithm and the data)
     FETCH s|r     read the fact (subject=s, relation=r) from THIS SAME KB and push
                   its object as a number. The program operates directly on the
@@ -108,7 +118,7 @@ _NULLARY = {"ADD", "SUB", "MUL", "DIV", "MOD",
             "AND", "OR", "XOR", "NOT", "SHL", "SHR",
             "DUP", "POP", "SWAP", "EMIT", "RET"}
 _UNARY = {"PUSH", "LOAD", "STORE", "JMP", "JZ", "CALL", "FETCH",
-          "MAP", "FILTER", "FOLD"}
+          "MAP", "FILTER", "FOLD", "OPAQUE"}
 OPCODES = _NULLARY | _UNARY
 
 
@@ -126,6 +136,7 @@ class ExecResult:
     steps: int = 0                      # instructions executed (for cost/limits)
     outputs: list = field(default_factory=list)       # values produced by EMIT
     reads: list = field(default_factory=list)         # facts read via FETCH (cited)
+    opaque: list = field(default_factory=list)        # OPAQUE black boxes used (UNVERIFIED)
 
 
 @dataclass
@@ -224,12 +235,19 @@ def _norm_input(v):
 
 
 def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
-        max_steps: int = 100_000, max_depth: int = 256, trace: bool = True) -> ExecResult:
+        max_steps: int = 100_000, max_depth: int = 256, trace: bool = True,
+        oracles: dict | None = None) -> ExecResult:
     """Execute the program in microtheory `scope` against `inputs`. Returns an
     ExecResult (value + provenance trace + step count + EMITted outputs + FETCHed
-    facts). Raises ExecError on any refusal/fault. `max_steps` bounds total work
-    and `max_depth` bounds the CALL stack, so a non-terminating or infinitely-
-    recursive program fails loudly instead of hanging.
+    facts + OPAQUE black boxes used). Raises ExecError on any refusal/fault.
+    `max_steps` bounds total work and `max_depth` bounds the CALL stack, so a non-
+    terminating or infinitely-recursive program fails loudly instead of hanging.
+
+    `oracles` supplies values for `OPAQUE` steps (declared black boxes): a mapping
+    {label: value}. With no oracle for a label, the executor REFUSES to run that
+    OPAQUE step (it will not invent an unverified result) — so a program with
+    un-opened black boxes is inspectable but not executable. A supplied oracle lets
+    it run, and the injected value is recorded in `result.opaque` as UNVERIFIED.
 
     `trace=True` (the default) records a cited line per executed step. Building
     those strings dominates runtime, so pass `trace=False` for hot/measured
@@ -237,6 +255,7 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
     stack: list = []
     outputs: list = []
     fetched: list = []                            # facts read via FETCH (cited)
+    opaques: list = []                            # OPAQUE black boxes used (UNVERIFIED)
     tlog: list = []                               # per-step trace (only if `trace`)
     cache: dict = {}                              # compiled programs, by scope
     decoded, addr = _compile(kb, scope, cache)
@@ -351,6 +370,22 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
             fetched.append(f"{subj} {rel} {facts[0].object} [{facts[0].source_article}]")
         elif op == "EMIT":
             outputs.append(stack[-1] if stack else None)
+        elif op == "OPAQUE":
+            # A declared BLACK BOX (an uninterpreted node): name + an honest
+            # "unverified" boundary. The executor will NOT invent its result — with
+            # no oracle for this label it REFUSES (exactness preserved). Given an
+            # oracle value it pushes it and records the use as UNVERIFIED, so the
+            # provenance separates cited/verified facts from trusted black-box output.
+            label = arg
+            if oracles is not None and label in oracles:
+                v = float(oracles[label])
+                stack.append(v)
+                opaques.append(f"{label} = {v} [OPAQUE, unverified]")
+            else:
+                raise ExecError(
+                    f"OPAQUE {label!r} is a declared black box with no provided value "
+                    f"— supply oracles={{{label!r}: ...}} to run (its result is "
+                    f"unverified), or treat the program as inspectable-but-not-executable")
         elif op in ("FOLD", "MAP", "FILTER"):
             # Higher-order: apply microtheory `arg` across a bounded range [0, n).
             # Each element runs the named scope to completion via a nested run() —
@@ -367,8 +402,9 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
                     if steps >= max_steps:
                         raise ExecError(f"step budget {max_steps} exceeded in FOLD")
                     res = run(kb, arg, {"acc": acc, "i": float(i)},
-                              max_steps, max_depth, False)
+                              max_steps, max_depth, False, oracles)
                     fetched.extend(res.reads)          # provenance flows up
+                    opaques.extend(res.opaque)
                     acc = res.value if res.value is not None else acc
                 stack.append(acc)
             else:                                      # MAP / FILTER -> a sequence
@@ -377,8 +413,9 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
                     steps += 1
                     if steps >= max_steps:
                         raise ExecError(f"step budget {max_steps} exceeded in {op}")
-                    res = run(kb, arg, {"i": float(i)}, max_steps, max_depth, False)
+                    res = run(kb, arg, {"i": float(i)}, max_steps, max_depth, False, oracles)
                     fetched.extend(res.reads)
+                    opaques.extend(res.opaque)
                     if op == "MAP":
                         outputs.append(res.value)
                         kept += 1
@@ -410,7 +447,7 @@ def run(kb: KB, scope: str, inputs: dict[str, float] | None = None,
             tlog.append(_fmt(t, stack))
         fr.pc = nxt
 
-    return ExecResult(stack[-1] if stack else None, tlog, steps, outputs, fetched)
+    return ExecResult(stack[-1] if stack else None, tlog, steps, outputs, fetched, opaques)
 
 
 def _fmt(t: Triple, stack: list[float]) -> str:
@@ -587,6 +624,24 @@ def _run() -> int:
           run(kbho, "do_filter", {}).outputs == [1.0, 3.0, 5.0])
     check("FOLD with a negative count is refused",
           _raises(lambda: run(kbho, "do_neg", {})))
+
+    # OPAQUE: a declared black box — refused unless an oracle is supplied; the
+    # surrounding hard computation is still represented and inspectable.
+    # risk = base_score + OPAQUE(ml_adjustment)
+    opq = KB(triples=_prog("risk", [("PUSH", 700), ("OPAQUE", "ml_adjustment"),
+                                    ("ADD", None), ("RET", None)], "scoring"),
+             alias_map={}, n_articles=0)
+    check("OPAQUE is refused when no oracle is supplied (no invention)",
+          _raises(lambda: run(opq, "risk", {})))
+    ropq = run(opq, "risk", {}, oracles={"ml_adjustment": 35})
+    check("OPAQUE runs when its value is supplied as an oracle (700+35=735)",
+          ropq.value == 735.0)
+    check("the OPAQUE black box is recorded as UNVERIFIED in provenance",
+          any("ml_adjustment" in o and "unverified" in o for o in ropq.opaque))
+    # the opaque surface is inspectable as DATA, before running anything
+    opaque_surface = {t.object for t in opq.ordered_scope("risk") if t.relation == "OPAQUE"}
+    check("a program's OPAQUE surface is queryable as data",
+          opaque_surface == {"ml_adjustment"})
 
     # closed set: an unknown opcode is refused before execution
     bad = KB(triples=_prog("evil", [("LOAD", "x"), ("OPEN_FILE", "/etc/passwd")]),
